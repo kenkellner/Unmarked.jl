@@ -1,60 +1,35 @@
-using Random, Distributions, StatsFuns, Optim, NLSolversBase, ForwardDiff
-using LinearAlgebra, DataFrames, StatsModels
-
-Random.seed!(123);
-
-#Simulate data
-
-#state covariates
-elev = rand(Normal(0,1),1000);
-forest = rand(Normal(0,1),1000);
-
-site_covs = DataFrame(elev=rand(Normal(0,1),1000),
-                      forest=rand(Normal(0,1),1000));
-
-site_covs[!,:psi] = zeros(nrow(site_covs));
-
-mm = ModelMatrix(ModelFrame(@formula(psi~elev+forest), site_covs));
-
-psi_truth = [0, -0.5, 1.2];
-
-psi = logistic.(mm.m * psi_truth);
-
-z = Array{Int32}(undef,1000); 
-for i = 1:1000
-  z[i] = rand(Binomial(1,psi[i]),1)[1];
-end
-
-p = 0.4;
-J = 5;
-y = Array{Int32}(undef, 1000);
-for i = 1:length(y)
-  y[i] = rand(Binomial(J, p * z[i]));
-end
+using DataFrames: DataFrame
+using StatsModels: ModelMatrix, ModelFrame, @formula, Term, diag
+using StatsFuns: logistic
+using Distributions: ccdf
+using StatsBase: CoefTable
+using Optim, NLSolversBase, ForwardDiff
 
 struct umf
-  y::Array{Int32}
+  y::Array{Int}
   site_covs::DataFrame
 end
-
-inp = umf(y, site_covs);
 
 #Fit with max likelihood
 function fit_model(psi_formula, data::umf)
 
   y = data.y
+
+  gd = get_design([psi_formula], [data.site_covs])
   
-  mf_psi = ModelFrame(psi_formula, data.site_covs)
-  X_psi = ModelMatrix(mf_psi).m
-  np_psi = size(X_psi)[2]
-
-  np_p = 1 #temporary
-
+  #temporary
+  np_p = 1
+  psi_ind = gd.inds[1]
+  np_psi = length(psi_ind)
+  X_psi = gd.mats[1]
   np = np_psi + np_p
+  pnames = [gd.coefs[1];"(Intercept)"]
+  modnames = ["Occupancy", "Detection"]
+  inds = [gd.inds, [np:np]]
 
   function loglik(β_raw::Array)
     
-    β_psi = β_raw[1:np_psi]
+    β_psi = β_raw[psi_ind]
     psi = logistic.(X_psi * β_psi)
 
     β_p = β_raw[(np_psi+1):np]
@@ -68,25 +43,8 @@ function fit_model(psi_formula, data::umf)
     return -sum(ll)
   end
 
-  func = TwiceDifferentiable(vars -> loglik(vars), zeros(np); 
-                             autodiff=:forward);
+  opt = optimize_loglik(loglik, np)
 
-  opt = optimize(func, zeros(np));
-  param = Optim.minimizer(opt);
-  param = round.(param; digits=3);
-  hes = NLSolversBase.hessian!(func, param);
-  vcov = inv(hes);
-  se = sqrt.(diag(vcov));
-  pnames = [coefnames(mf_psi);"p"];
+  UmFit(opt.coef, opt.se, opt.vcov, pnames, modnames, inds)
 
-  df = DataFrame(Parameter=pnames, Estimate=param, SE=se)
-
-  return df
 end
-
-fit = fit_model(@formula(psi~elev+forest), inp);
-
-#Display
-truth = round.([psi_truth; logit(p)]; digits=3); 
-fit[!,:truth] = truth;
-fit
