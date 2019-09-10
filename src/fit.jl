@@ -33,7 +33,19 @@ struct UmFit
   param_names::Array
   inds::Array
   formulas::Array
+  links::Array
+  models::Tuple
 end
+
+struct UmModel
+  name::String
+  formula::FormTerm
+  link::Link
+  coef::Array
+  coef_names::Array
+  vcov::Array
+end
+
 
 "Build table of coefficients and related stats for given model"
 function coeftable(fit::UmFit, model::String)

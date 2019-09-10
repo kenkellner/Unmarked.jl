@@ -10,10 +10,31 @@ end
 function get_index(choice::String, options::Array)
   
   if choice ∉ options
-    error(string(choice, "is not a valid option"))
+    error(string(choice, " is not a valid option"))
   end
 
   findall(options .== choice)[1]
 end
 
+## Links
 
+abstract type Link end
+
+#Logit link
+struct LogitLink <: Link end
+
+function invlink(x::Real, link::LogitLink)
+  logistic(x)
+end
+
+function invlink(x::Array{Real}, link::LogitLink)
+  logistic.(x)
+end
+
+function grad(x::Real, link::LogitLink)
+  exp(-x)/(1+exp(-x))^2
+end
+
+function grad(ax::Array{Real}, link::LogitLink)
+  map(x -> exp(-x)/(1+exp(-x))^2, ax)
+end

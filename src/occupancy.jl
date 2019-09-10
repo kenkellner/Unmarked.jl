@@ -3,6 +3,7 @@ function occu(ψ_formula::FormulaTerm, p_formula::FormulaTerm, data::UmData)
 
   mods = ["Occupancy", "Detection"]
   formulas = [ψ_formula, p_formula]
+  links = [LogitLink(), LogitLink()]
 
   y = data.y
   N = size(y)[1]
@@ -43,6 +44,6 @@ function occu(ψ_formula::FormulaTerm, p_formula::FormulaTerm, data::UmData)
   opt = optimize_loglik(loglik, np)
 
   UmFit(opt.coef, opt.se, opt.vcov, opt.AIC,
-        gd.coefs, mods, gd.params, gd.inds, formulas)
+        gd.coefs, mods, gd.params, gd.inds, formulas, links)
 
 end
