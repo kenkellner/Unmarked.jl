@@ -27,8 +27,8 @@ function invlink(x::Float64, link::LogitLink)
   logistic(x)
 end
 
-function invlink(x::Array, link::LogitLink)
-  logistic.(x)
+function invlink(ax::Array, link::LogitLink)
+  logistic.(ax)
 end
 
 function grad(x::Float64, link::LogitLink)
@@ -37,4 +37,23 @@ end
 
 function grad(ax::Array, link::LogitLink)
   map(x -> exp(-x)/(1+exp(-x))^2, ax)
+end
+
+#Log link
+struct LogLink <: Link end
+
+function invlink(x::Float64, link::LogLink)
+  exp(x)
+end
+
+function invlink(x::Array, link::LogLink)
+  exp.(x)
+end
+
+function grad(x::Float64, link::LogLink)
+  exp(x)
+end
+
+function grad(ax::Array, link::LogLink)
+  exp.(ax)
 end

@@ -1,5 +1,5 @@
 using Random: seed!, rand
-using Distributions: Normal, Poisson
+using Distributions: Normal, Binomial, Poisson
 using DataFrames: DataFrame, nrow
 using StatsModels: @formula, ModelFrame, ModelMatrix
 using StatsFuns: logistic, logit
@@ -23,7 +23,7 @@ mm = ModelMatrix(ModelFrame(@formula(lam~elev+forest), site_covs));
 
 lam_truth = [0, -0.5, 1.2];
 
-lam = exp.(mm.m * psi_truth);
+lam = exp.(mm.m * lam_truth);
 
 a = Array{Int}(undef,N); 
 for i = 1:N
@@ -59,4 +59,13 @@ end
 
 inp = UmData(y, site_covs, obs_covs);
 
+fit = Nmix(@formula(λ~elev+forest), @formula(p~precip+wind), inp)
 
+pr_df = DataFrame(elev=[0.2,-0.5], forest=[-0.3,0.7])
+
+predict(fit.models.abun, pr_df)
+
+#Supply K
+
+K = maximum(inp.y) + 10
+fit2 = Nmix(@formula(λ~elev+forest), @formula(p~precip+wind), inp, K)
