@@ -24,49 +24,63 @@ end
 
 "Fitted model output structure"
 struct UmFit
-  coef::Array
-  se::Array
   vcov::Array
   AIC::Float64
-  coef_names::Array
-  model_names::Array
-  param_names::Array
-  inds::Array
-  formulas::Array
-  links::Array
-  models::Tuple
+  models::NamedTuple
 end
 
+"Submodel output structure"
 struct UmModel
-  name::String
-  formula::FormTerm
+  name::Symbol
+  formula::FormulaTerm
   link::Link
   coef::Array
-  coef_names::Array
   vcov::Array
+  coefnames::Array{String}
+  data::DataFrame
 end
 
+function UmModel(ud::UmDesign, opt::UmOpt)
+  UmModel(ud.name, ud.formula, ud.link, opt.coef[ud.idx],
+          opt.vcov[ud.idx,ud.idx], ud.coefnames, ud.data)
+end
 
-"Build table of coefficients and related stats for given model"
-function coeftable(fit::UmFit, model::String)
-  inds = fit.inds[get_index(model, fit.model_names)]
-  coef = fit.coef[inds]
-  se = fit.se[inds]
-  z = abs.(coef./se)
+"Get array with all coefficients"
+function coef(x::UmFit)
+  vcat(map(x -> x.coef, x.models)...)
+end
+
+"Calculate standard errors from vcov matrix"
+function SE(x::Union{UmFit,UmModel})
+  sqrt.(diag(x.vcov))
+end
+
+"Generate coeftable for UmModel"
+function coeftable(um::UmModel)
+  
+  se = SE(um)
+  z = abs.(um.coef ./ se)
   pval = map(x -> 2*ccdf(Normal(0,1), x), z)
 
-  CoefTable([coef, se, z, pval], 
+  CoefTable([um.coef, se, z, pval], 
             ["Estimate", "Std.Error", "z value", "Pr(>|z|)"],
-            fit.coef_names[inds], 4, 3)
+            um.coefnames, 4, 3)
+end
+
+"Show function for UmModel"
+function Base.show(io::IO, um::UmModel)
+  println()
+  println(string(um.name, ": ", um.formula))
+  print(coeftable(um))
 end
 
 "Show function for UmFit"
 function Base.show(io::IO, fit::UmFit)
   
   println()
-  for i = 1:length(fit.model_names)
-    println(string(fit.model_names[i], ": ", fit.formulas[i]))
-    println(coeftable(fit, fit.model_names[i]))
+  for i = 1:length(fit.models)
+    println(string(fit.models[i].name, ": ", fit.models[i].formula))
+    println(coeftable(fit.models[i]))
     println()
   end
   print("AIC: ", round(fit.AIC, digits=4))

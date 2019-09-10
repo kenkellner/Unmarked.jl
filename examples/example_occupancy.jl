@@ -59,9 +59,15 @@ fit = occu(@formula(ψ~elev+forest), @formula(p~precip+wind), inp);
 
 fit
 
-#Truth
-truth = round.([psi_truth; p_truth]; digits=3)
+#Prediction
+t = predict(fit.models.det)
 
+pr_df = DataFrame(elev=[0.5, -0.3], forest=[1,-1])
+pr_df2 = DataFrame(elev=0.5, forest=1)
+
+predict(fit.models.occ, pr_df2) 
+
+#Missing values
 yna = Array{Union{Int,Missing}}(y)
 yna[1,:] = fill(missing, J)
 yna[2,1] = missing
@@ -71,91 +77,3 @@ inp2 = UmData(yna, site_covs, obs_covs);
 fit2 = occu(@formula(psi~elev+forest), @formula(p~precip+wind), inp2);
 
 fit2
-
-####
-
-nsc = site_covs;
-
-nsc2 = allowmissing(nsc);
-
-nsc2[1,1] = missing;
-
-inp3 = UmData(y, nsc2, obs_covs);
-
-f = @formula(psi~elev+forest)
-
-using DataFrames
-
-m = ModelFrame(f, inp3.site_covs);
-m2 = ModelMatrix(m);
-
-##
-
-pr_df = DataFrame(psi=[0,0],elev=[0.5, -0.3], forest=[1,-1])
-
-function predict(fit::Unmarked.UmFit, newdata::DataFrame, param::String) 
-  idx = Unmarked.get_index(param, fit.param_names)
-  gd = Unmarked.get_design([fit.formulas[idx]], [newdata])
-  coefs = fit.coef[fit.inds[idx]]
-  lp = gd.mats[1] * coefs
-end
-
-pr = predict(fit, pr_df, "psi")
-
-
-using StatsFuns, ForwardDiff
-using Distributions
-
-β = [-0.3, 0.7]
-X = transpose([1, -0.4])
-
-#These are the same
-trans = logistic.(X*β)
-trans2 = map.(x -> cdf(Logistic(), x), X*β)
-
-#solved
-function deriv_inv(vals)
-  map.(x -> exp(-x) / (1+exp(-x))^2, vals)
-end
-
-pred = X * β
-
-gr = [deriv_inv(pred)]
-
-vcov = [[0.3,0.1] [-0.1, 0.5]]
-
-gr * vcov * transpose(gr)
-
-function g(b1, b2)
-  b = [b1, b2]
-  [logistic.(X*b)]
-end
-
-grad = ForwardDiff.jacobian(β -> g(β), β)
-
-f(x,y)=[x^2+y^3-1,x^4 - y^4 + x*y]
-
-a = [1.0,1.0]
-
-ForwardDiff.jacobian(x -> f(x[1],x[2]), a)
-
-function transform_logit(β, X)
-  ForwardDiff.jacobian(β -> logistic(X*β), β)
-end
-
-transform_logit(β, X)
-
-function logit_mfx(β,x)
-  ForwardDiff.jacobian(β-> map(xb -> cdf(Logistic(),xb), x*β), β)  
-end
-
-function delta_method(g, θ, Ω)
-  dG = ForwardDiff.jacobian(θ->g(θ),θ)
-  dG*Ω*dG'  
-end
-
-delta_method(β->logit_mfx(β,X)[:,1], β, avar.variance/n)
-
-function j(value::AbstractFloat)
-  ForwardDiff.jacobian(x -> logistic(x), value)
-end

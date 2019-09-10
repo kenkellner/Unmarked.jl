@@ -23,18 +23,18 @@ abstract type Link end
 #Logit link
 struct LogitLink <: Link end
 
-function invlink(x::Real, link::LogitLink)
+function invlink(x::Float64, link::LogitLink)
   logistic(x)
 end
 
-function invlink(x::Array{Real}, link::LogitLink)
+function invlink(x::Array, link::LogitLink)
   logistic.(x)
 end
 
-function grad(x::Real, link::LogitLink)
+function grad(x::Float64, link::LogitLink)
   exp(-x)/(1+exp(-x))^2
 end
 
-function grad(ax::Array{Real}, link::LogitLink)
+function grad(ax::Array, link::LogitLink)
   map(x -> exp(-x)/(1+exp(-x))^2, ax)
 end

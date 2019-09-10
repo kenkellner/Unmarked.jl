@@ -1,49 +1,12 @@
-"Structure containg design matrices and related info"
-struct UmDesign
-  params::Array
-  coefs::Array
-  inds::Array
-  mats::Array
-end
-
-"""
-Build design matrices from vector of formulas and matching 
-vector of data frames
-"""
-function get_design(formulas::Array, cov_frames::Array)
-  
-  params = map(x -> string(x.lhs.sym), formulas)
-  schemas = get_schemas(formulas, cov_frames)
-  coefs = reduce(vcat, coefnames.(schemas)) 
-  mats = get_mats(schemas, cov_frames) 
-  inds = get_inds(mats)
-
-  return UmDesign(params, coefs, inds, mats)
-
-end
-
-"Check that all formula variables are present in corresponding data frame"
-function check_formula(formula::FormulaTerm, covariate_frame::DataFrame)
-  nms = names(covariate_frame)
- 
-  #Variables in formula to array
-  if eltype(formula.rhs) == Term
-    vars = collect(map(x -> x.sym, formula.rhs))
-  else
-    vars = [formula.rhs.sym]
-  end
-   
-  #Check if any are not in covariate frame
-  not_in = map(x -> x ∉ nms, vars)
-  
-  #Error if necessary
-  if any(not_in)
-    miss_vars = map(x -> string(x), vars)[not_in]
-    error(string("Variable(s) in formula not found in dataset: ", miss_vars))
-  end
-
-  return nothing
-
+"Structure containg design matrix and related info for each submodel"
+mutable struct UmDesign
+  name::Symbol
+  formula::FormulaTerm
+  link::Link
+  data::DataFrame
+  coefnames::Union{Array{String}, Nothing}
+  mat::Union{Array{Float64,2}, Nothing}
+  idx::Union{UnitRange{Int64}, Nothing}
 end
 
 "Check input data frames for validity"
@@ -54,58 +17,46 @@ function check_data(dat::DataFrame)
   return nothing
 end
 
-"Get schema for each formula / data frame combination"
-function get_schemas(formulas::Array, cov_frames::Array)
-  
-  out = []
-  
-  for i = 1:length(formulas)
-    #Check if formula has variables not in covariate frame
-    #Need to fix to address interactions
-    #check_formula(formulas[i], cov_frames[i])
-    #Check correspding data frame
-    check_data(cov_frames[i])
-    #Copy covariate frame and add dummy column of zeros for LHS of formula
-    covs = deepcopy(cov_frames[i])
-    covs[!,formulas[i].lhs.sym] = zeros(nrow(covs))
+"Add dummy column for response variable to data"
+add_resp! = function(x::UmDesign)
+  lhs = x.formula.lhs.sym
+  if lhs in names(x.data) return nothing end
+  x.data[!,lhs] = zeros(nrow(x.data))
+end
 
-    #Buld and apply schema
-    sch = schema(formulas[i], covs)
-    asch = apply_schema(formulas[i], sch, StatisticalModel)
+"Add design matrix"
+function add_dm!(x::UmDesign)  
+  sch = schema(x.formula, x.data)
+  asch = apply_schema(x.formula, sch, StatisticalModel)  
+  x.coefnames = coefnames(asch.rhs)
+  x.mat = modelcols(asch.rhs, x.data)
+end
 
-    #Add rhs of schema to output
-    push!(out, asch.rhs)
+"Outer constructor for UmDesign objects"
+function UmDesign(name::Symbol, formula::FormulaTerm, link::Link,
+                  data::DataFrame)
+  check_data(data)
+  out = UmDesign(name, formula, link, deepcopy(data), 
+           nothing, nothing, nothing)
+  add_resp!(out)
+  add_dm!(out)
+  out
+end
+
+"Add indexes to map combined coefs back to submodels"
+function add_idx!(dm::Array{UmDesign})
+
+  idx = 1
+  for i = 1:length(dm)
+    np = length(dm[i].coefnames)
+    dm[i].idx = idx:(idx+np-1)
+    idx += np
   end
-
-  return out
 
 end
 
-"Get array of design matrices from array of schemas"
-function get_mats(schemas::Array, cov_frames::Array)
-  
-  mats = []
-
-  for i in 1:length(schemas)
-    push!(mats, modelcols(schemas[i], cov_frames[i]))
-  end
-
-  mats
-end
-
-"Get parameter index ranges for each design matrix"
-function get_inds(design_mats)
-
-  np = map(x -> size(x)[2], design_mats)
-
-  out = Array{UnitRange{Int}}(undef, length(np))
-
-  index = 1
-  for i in 1:length(np)
-    out[i] = index:(index + np[i] - 1)
-    index += np[i]
-  end
-    
-  return out
-
+"Transform linear predictor back to response scale"
+function transform(dm::UmDesign, coefs::Array)
+  lp = dm.mat * coefs[dm.idx]
+  invlink(lp, dm.link)
 end

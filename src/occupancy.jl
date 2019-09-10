@@ -1,23 +1,19 @@
 "Fit single-season occupancy models"
 function occu(ψ_formula::FormulaTerm, p_formula::FormulaTerm, data::UmData)
-
-  mods = ["Occupancy", "Detection"]
-  formulas = [ψ_formula, p_formula]
-  links = [LogitLink(), LogitLink()]
+  
+  occ = UmDesign(:Occupancy, ψ_formula, LogitLink(), data.site_covs)
+  det = UmDesign(:Detection, p_formula, LogitLink(), data.obs_covs)
+  add_idx!([occ, det])
+  np = det.idx.stop
 
   y = data.y
-  N = size(y)[1]
-  J = size(y)[2]
+  N, J = size(y)
   nd = ndetects(y)
-
-  gd = get_design(formulas, [data.site_covs, data.obs_covs])
-  
-  np = length(gd.coefs)
 
   function loglik(β::Array)
     
-    ψ = logistic.(gd.mats[1] * β[gd.inds[1]])
-    p = logistic.(gd.mats[2] * β[gd.inds[2]])
+    ψ = transform(occ, β)
+    p = transform(det, β)
 
     ll = zeros(eltype(β), N)
 
@@ -42,8 +38,8 @@ function occu(ψ_formula::FormulaTerm, p_formula::FormulaTerm, data::UmData)
   end
 
   opt = optimize_loglik(loglik, np)
-
-  UmFit(opt.coef, opt.se, opt.vcov, opt.AIC,
-        gd.coefs, mods, gd.params, gd.inds, formulas, links)
+  
+  UmFit(opt.vcov, opt.AIC,
+        (occ=UmModel(occ,opt), det=UmModel(det,opt)))
 
 end
