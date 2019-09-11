@@ -34,7 +34,7 @@ end
   @test isequal(umd.formula, @formula(ψ~a+b))
   @test isequal(umd.link, Unmarked.LogitLink())
   @test isequal(umd.data, dat.site_covs)
-  @test all(isnothing.([umd.coefnames,umd.mat,umd.idx]))
+  @test all(map(x -> x == nothing, [umd.coefnames,umd.mat,umd.idx]))
 
   #Test add dummy response colum
   df_test = deepcopy(sc)
