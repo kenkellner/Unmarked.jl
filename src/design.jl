@@ -20,8 +20,11 @@ end
 "Add dummy column for response variable to data"
 add_resp! = function(x::UmDesign)
   lhs = x.formula.lhs.sym
+  dc = deepcopy(x.data)
   if lhs in names(x.data) return nothing end
-  x.data[!,lhs] = zeros(nrow(x.data))
+  dc[!,lhs] = zeros(nrow(dc))
+  x.data = dc
+  return nothing
 end
 
 "Add design matrix"
@@ -36,8 +39,7 @@ end
 function UmDesign(name::Symbol, formula::FormulaTerm, link::Link,
                   data::DataFrame)
   check_data(data)
-  out = UmDesign(name, formula, link, deepcopy(data), 
-           nothing, nothing, nothing)
+  out = UmDesign(name, formula, link, data, nothing, nothing, nothing)
   add_resp!(out)
   add_dm!(out)
   out

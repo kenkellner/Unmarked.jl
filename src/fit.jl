@@ -1,7 +1,6 @@
 "Optimization output structure"
 struct UmOpt
   coef::Array{Float64}
-  se::Array{Float64}
   vcov::Array{Float64}
   AIC::Float64
 end
@@ -16,10 +15,9 @@ function optimize_loglik(loglik, np)
   param = Optim.minimizer(opt)
   hes = NLSolversBase.hessian!(func, param)
   vcov = inv(hes)
-  se = sqrt.(diag(vcov))
   AIC = 2 * np - 2 * -Optim.minimum(opt)
 
-  UmOpt(param, se, vcov, AIC)
+  UmOpt(param, vcov, AIC)
 end
 
 "Fitted model output structure"
