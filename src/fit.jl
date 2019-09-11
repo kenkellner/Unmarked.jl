@@ -20,12 +20,8 @@ function optimize_loglik(loglik, np)
   UmOpt(param, vcov, AIC)
 end
 
-"Fitted model output structure"
-struct UmFit
-  vcov::Array
-  AIC::Float64
-  models::NamedTuple
-end
+"Fitted model output type"
+abstract type UmFit end
 
 "Submodel output structure"
 struct UmModel
@@ -43,13 +39,23 @@ function UmModel(ud::UmDesign, opt::UmOpt)
           opt.vcov[ud.idx,ud.idx], ud.coefnames, ud.data)
 end
 
+"Outer constructor that re-creates design matrices from fitted model"
+function UmDesign(um::UmModel)
+  UmDesign(um.name, um.formula, um.link, um.data)
+end
+
+"Outer constructor that re-creates design matrices with newdata"
+function UmDesign(um::UmModel, newdata::DataFrame)
+  UmDesign(um.name, um.formula, um.link, newdata)
+end
+
 "Get array with all coefficients"
 function coef(x::UmFit)
   vcat(map(x -> x.coef, x.models)...)
 end
 
 "Calculate standard errors from vcov matrix"
-function SE(x::Union{UmFit,UmModel})
+function SE(x::UmModel)
   sqrt.(diag(x.vcov))
 end
 
@@ -81,6 +87,6 @@ function Base.show(io::IO, fit::UmFit)
     println(coeftable(fit.models[i]))
     println()
   end
-  print("AIC: ", round(fit.AIC, digits=4))
+  print("AIC: ", round(fit.opt.AIC, digits=4))
 
 end

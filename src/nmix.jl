@@ -1,3 +1,9 @@
+struct UmFitNmix <: UmFit
+  data::UmData
+  opt::UmOpt
+  models::NamedTuple
+end
+
 "Fit N-mixture models"
 function Nmix(λ_formula::FormulaTerm, p_formula::FormulaTerm, 
               data::UmData, K::Int)
@@ -51,9 +57,7 @@ function Nmix(λ_formula::FormulaTerm, p_formula::FormulaTerm,
   end
 
   opt = optimize_loglik(loglik, np)
-  
-  UmFit(opt.vcov, opt.AIC,
-        (abun=UmModel(abun,opt), det=UmModel(det,opt)))
+  UmFitNmix(opt, (abun=UmModel(abun,opt), det=UmModel(det,opt)), data)
 
 end
 

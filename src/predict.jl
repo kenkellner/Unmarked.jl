@@ -13,7 +13,7 @@ end
 "Predict values, optionally using a new covariate data frame"
 function predict(um::UmModel, newdata::DataFrame, 
                  transform::Bool=true)
-  dm = UmDesign(um.name, um.formula, um.link, newdata).mat
+  dm = UmDesign(um, newdata).mat
   est = dm * um.coef
   vcov = dm * um.vcov * transpose(dm)
   se = sqrt.(diag(vcov))

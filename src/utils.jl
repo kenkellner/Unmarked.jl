@@ -16,6 +16,15 @@ function get_index(choice::String, options::Array)
   findall(options .== choice)[1]
 end
 
+"Simulate random covariate frame based on provided formula"
+function gen_covs(f::FormulaTerm, n::Int)
+  covs = collect(map(x -> x.sym, f.rhs))
+  nc = length(covs)
+  out = DataFrame(reshape(rand(Normal(0,1), n*nc), n, nc))
+  DataFrames.names!(out, covs)
+  out
+end
+
 ## Links
 
 abstract type Link end
@@ -57,3 +66,6 @@ end
 function grad(ax::Array, link::LogLink)
   exp.(ax)
 end
+
+#Misc types
+abstract type UmSim end
