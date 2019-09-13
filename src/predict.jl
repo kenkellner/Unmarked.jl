@@ -1,41 +1,46 @@
 ## Predictions
 
-"Structure to hold predicted values"
-struct UmPred
-  name::Symbol
-  Predicted::Array
-  SE::Array
-  lower::Array
-  upper::Array
-  transform::Bool
-end
+"""
+    predict(um::UnmarkedSubmodel, newx::DataFrame;
+            transform::Bool = true, interval::Bool = false, 
+            level::Real = 0.95)
 
-"Predict values, optionally using a new covariate data frame"
-function predict(um::UmModel, newdata::DataFrame, 
-                 transform::Bool=true)
-  dm = UmDesign(um, newdata).mat
+Form the predicted response of submodel `um` (e.g., detection or occupancy). 
+A DataFrame with new covariate values `newx` can be optionally supplied.
+
+If `transform` is `true`, predicted values are transformed back to the original
+scale of the response (e.g., 0-1 for probability of occupancy).
+If `interval` is `true`, instead return a tuple of vectors with the prediction 
+and the lower and upper confidence bounds for a given `level` 
+(0.95 is equivalent to α = 0.05).
+"""
+function predict(um::UnmarkedSubmodel, newx::DataFrame; transform::Bool=true, 
+                 interval::Bool = false, level::Real = 0.95)
+  
+  dm = UmDesign(um, newx).mat
   est = dm * um.coef
-  vcov = dm * um.vcov * transpose(dm)
-  se = sqrt.(diag(vcov))
-  lower = est - 1.96 * se
-  upper = est + 1.96 * se
-  if transform
-    est = invlink(est, um.link)
-    g = grad(est, um.link)
-    vcov = Diagonal(g) * vcov * Diagonal(g)
-    se = sqrt.(diag(vcov))
-    lower = Unmarked.invlink(lower, um.link)
-    upper = Unmarked.invlink(upper, um.link)
+
+  if !interval
+    if !transform return est end
+    return invlink(est, um.link)
   end
 
-  UmPred(um.name, est, se, lower, upper, transform)
+  vcov = dm * um.vcov * transpose(dm)
+  se = sqrt.(diag(vcov))
+  zval = -quantile(Normal(), (1-level)/2)
+  lower = est - zval * se
+  upper = est + zval * se
+
+  if transform  
+    est = invlink(est, um.link)
+    lower = invlink(lower, um.link)
+    upper = invlink(upper, um.link)
+  end
+
+  return (prediction=est, lower=lower, upper=upper)
 end
 
-function predict(um::UmModel, transform::Bool=true)
-  predict(um, um.data, transform)
-end
-
-function Base.show(io::IO, up::UmPred)
-  println(DataFrame(Predicted=up.Predicted, SE=up.SE, 
-                    lower=up.lower, upper=up.upper))
+function predict(um::UnmarkedSubmodel; transform::Bool=true,
+                interval::Bool = false, level::Real = 0.95)
+  predict(um, um.data, transform=transform, interval=interval, level=level)
 end

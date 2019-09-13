@@ -39,10 +39,12 @@ end
   #Test add dummy response colum
   df_test = deepcopy(sc)
   df_test[!,:ψ] = zeros(2)
-  Unmarked.add_resp!(umd)
-  @test isequal(umd.data, df_test)
+  new_sc = Unmarked.add_resp(umd.data, umd.formula)
+  @test isequal(new_sc, df_test)
   @test isequal(names(sc), [:a, :b])
-  @test !(umd.data === sc)
+  @test isequal(names(umd.data), [:a, :b])
+  @test !(new_sc === sc)
+  @test umd.data === sc
  
   #Add design matrix
   Unmarked.add_dm!(umd)
@@ -52,7 +54,7 @@ end
   umd2 = Unmarked.UmDesign(:test2, @formula(p~c), Unmarked.LogitLink(),
                           dat.obs_covs)
   @test isequal(umd2.mat, [[1.0, 1.0] [5.0, 6.0]])
-  @test !(umd2.data === oc)
+  @test umd2.data === oc
 
   #Test getting coefficient indices
   Unmarked.add_idx!([umd, umd2])

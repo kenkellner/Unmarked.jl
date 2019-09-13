@@ -1,4 +1,4 @@
-using Unmarked, Random, StatsModels, DataFrames
+using Unmarked, Random, DataFrames
 
 Random.seed!(123);
 
@@ -6,19 +6,18 @@ Random.seed!(123);
 p_formula = @formula(p~precip+wind);
 β_truth = [0, -0.5, 1.2, -0.2, 0, 0.7];
 
-umd = simulate(Unmarked.UmSimOccu(), ψ_formula, p_formula, 
-               [1000, 5], β_truth);
+umd = simulate(Occu, ψ_formula, p_formula, [1000, 5], β_truth);
 
 fit = occu(ψ_formula, p_formula, umd);
 
-fit
+hcat(coef(fit), β_truth)
 
 #Prediction
-pr = predict(fit.models.det);
+pr = predict(detection(fit));
 
 pr_df = DataFrame(elev=[0.5, -0.3], forest=[1,-1]);
 
-predict(fit.models.occ, pr_df) 
+predict(occupancy(fit), pr_df, interval=true) 
 
 #Simulate
 s = simulate(fit);
@@ -34,4 +33,4 @@ fit2 = occu(@formula(psi~elev+forest), @formula(p~precip+wind), inp2);
 
 fit2
 
-
+df = DataFrame(elev=[1,2],forest=[3,4],ψ=[0,0])

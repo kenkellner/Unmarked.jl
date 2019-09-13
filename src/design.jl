@@ -18,21 +18,21 @@ function check_data(dat::DataFrame)
 end
 
 "Add dummy column for response variable to data"
-add_resp! = function(x::UmDesign)
-  lhs = x.formula.lhs.sym
-  dc = deepcopy(x.data)
-  if lhs in names(x.data) return nothing end
+add_resp = function(x::DataFrame, f::FormulaTerm)
+  lhs = f.lhs.sym
+  if lhs in names(x) return x end
+  dc = deepcopy(x)
   dc[!,lhs] = zeros(nrow(dc))
-  x.data = dc
-  return nothing
+  return dc
 end
 
 "Add design matrix"
-function add_dm!(x::UmDesign)  
-  sch = schema(x.formula, x.data)
+function add_dm!(x::UmDesign)
+  dat = add_resp(x.data, x.formula)
+  sch = schema(x.formula, dat)
   asch = apply_schema(x.formula, sch, StatisticalModel)  
   x.coefnames = coefnames(asch.rhs)
-  x.mat = modelcols(asch.rhs, x.data)
+  x.mat = modelcols(asch.rhs, dat)
 end
 
 "Outer constructor for UmDesign objects"
@@ -40,7 +40,6 @@ function UmDesign(name::Symbol, formula::FormulaTerm, link::Link,
                   data::DataFrame)
   check_data(data)
   out = UmDesign(name, formula, link, data, nothing, nothing, nothing)
-  add_resp!(out)
   add_dm!(out)
   out
 end

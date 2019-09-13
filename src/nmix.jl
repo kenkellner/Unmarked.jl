@@ -1,11 +1,11 @@
-struct UmFitNmix <: UmFit
+struct Nmix <: UnmarkedModel
   data::UmData
-  opt::UmOpt
-  models::NamedTuple
+  opt::UnmarkedOpt
+  submodels::NamedTuple
 end
 
 "Fit N-mixture models"
-function Nmix(λ_formula::FormulaTerm, p_formula::FormulaTerm, 
+function nmix(λ_formula::FormulaTerm, p_formula::FormulaTerm, 
               data::UmData, K::Int)
   
   abun = UmDesign(:Abundance, λ_formula, LogLink(), data.site_covs)
@@ -57,15 +57,16 @@ function Nmix(λ_formula::FormulaTerm, p_formula::FormulaTerm,
   end
 
   opt = optimize_loglik(loglik, np)
-  UmFitNmix(opt, (abun=UmModel(abun,opt), det=UmModel(det,opt)), data)
+  UmFitNmix(data, opt, (abun=UnmarkedSubmodel(abun,opt), 
+                  det=UnmarkedSubmodel(det,opt)))
 
 end
 
-function Nmix(λ_formula::FormulaTerm, p_formula::FormulaTerm, 
+function nmix(λ_formula::FormulaTerm, p_formula::FormulaTerm, 
               data::UmData)
 
   K = maximum(data.y) + 20
-  Nmix(λ_formula, p_formula, data, K)
+  nmix(λ_formula, p_formula, data, K)
   
 end
 

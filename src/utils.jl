@@ -66,6 +66,3 @@ end
 function grad(ax::Array, link::LogLink)
   exp.(ax)
 end
-
-#Misc types
-abstract type UmSim end

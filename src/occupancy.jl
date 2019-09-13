@@ -1,7 +1,7 @@
-struct UmFitOccu <: UmFit
+struct Occu <: UnmarkedModel
   data::UmData
-  opt::UmOpt
-  models::NamedTuple
+  opt::UnmarkedOpt
+  submodels::NamedTuple
 end
 
 "Fit single-season occupancy models"
@@ -44,27 +44,25 @@ function occu(ψ_formula::FormulaTerm, p_formula::FormulaTerm, data::UmData)
   end
 
   opt = optimize_loglik(loglik, np)
-  UmFitOccu(data, opt, (occ=UmModel(occ,opt), det=UmModel(det,opt)))
-
+  Occu(data, opt, (occ=UnmarkedSubmodel(occ,opt),
+                   det=UnmarkedSubmodel(det,opt)))
 end
 
 #Simulations
-struct UmSimOccu <: UmSim end
-
 "Simulate new dataset from a fitted model"
-function simulate(fit::UmFitOccu)
+function simulate(fit::Occu)
   
   ydims = collect(size(fit.data.y))
-  ψ = predict(fit.models.occ).Predicted
-  p = predict(fit.models.det).Predicted
+  ψ = predict(occupancy(fit))
+  p = predict(detection(fit))
   
-  y = sim_y_occu(ψ, p, ydims)
+  y = _sim_y_occu(ψ, p, ydims)
   
   UmData(y, fit.data.site_covs, fit.data.obs_covs)
 end
 
 "Simulate new dataset from provided formulas"
-function simulate(::UmSimOccu, ψ_formula::FormulaTerm, 
+function simulate(::Type{Occu}, ψ_formula::FormulaTerm, 
                   p_formula::FormulaTerm, ydims::Array{Int}, coef::Array)
  
   sc = gen_covs(ψ_formula, ydims[1])
@@ -82,13 +80,13 @@ function simulate(::UmSimOccu, ψ_formula::FormulaTerm,
   ψ = transform(occ, coef)
   p = transform(det, coef)
 
-  y = sim_y_occu(ψ, p, ydims)
+  y = _sim_y_occu(ψ, p, ydims)
 
   UmData(y, sc, oc)
 end
 
-"Simulate y matrix from provided psi and p vectors"
-function sim_y_occu(ψ::Array, p::Array, ydims::Array)
+#Simulate y matrix from provided psi and p vectors"
+function _sim_y_occu(ψ::Array, p::Array, ydims::Array)
   
   N,J = ydims
   z = map(x -> rand(Binomial(1, x))[1], ψ)
