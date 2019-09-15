@@ -4,7 +4,14 @@ struct Occu <: UnmarkedModel
   submodels::NamedTuple
 end
 
-"Fit single-season occupancy models"
+"""
+    occu(ψ_formula::FormulaTerm, p_formula::FormulaTerm, data::Umdata)
+
+Fit single-season occupancy models. Covariates on occupancy and detection 
+are specified with `ψ_formula` and `p_formula`, respectively. The `UmData`
+object should contain `site_covs` and `obs_covs` `DataFrames` containing
+columns with names matching the formulas.
+"""
 function occu(ψ_formula::FormulaTerm, p_formula::FormulaTerm, data::UmData)
   
   occ = UmDesign(:Occupancy, ψ_formula, LogitLink(), data.site_covs)
@@ -48,7 +55,22 @@ function occu(ψ_formula::FormulaTerm, p_formula::FormulaTerm, data::UmData)
                    det=UnmarkedSubmodel(det,opt)))
 end
 
-#Simulations
+#Fit alias
+"""
+    fit(Occu, ψ_formula::FormulaTerm, p_formula::FormulaTerm, data::Umdata)
+
+Fit single-season occupancy models. Covariates on occupancy and detection 
+are specified with `ψ_formula` and `p_formula`, respectively. The `UmData`
+object should contain `site_covs` and `obs_covs` `DataFrames` containing
+columns with names matching the formulas.
+"""
+function fit(::Type{Occu}, ψ_formula::FormulaTerm, p_formula::FormulaTerm,
+             data::UmData)
+  occu(ψ_formula, p_formula, data)
+end
+
+# Simulations------------------------------------------------------------------
+
 "Simulate new dataset from a fitted model"
 function simulate(fit::Occu)
   
@@ -100,4 +122,104 @@ function _sim_y_occu(ψ::Array, p::Array, ydims::Array)
   end
 
   return y
+end
+
+# Update ----------------------------------------------------------------------
+
+function update(fit::Occu, data::UmData)
+  occu(occupancy(fit).formula, detection(fit).formula, data)
+end
+
+# Goodness-of-fit -------------------------------------------------------------
+
+#Get probability of a particular encounter history
+function get_prob_eh(eh::String, pvec::Array, psi::Float64)
+  ehv =  parse.(Int, split(eh,""))
+  pvals = (ehv .* pvec) + (1 .- ehv) .* (1 .- pvec)
+  
+  if sum(ehv) == 0
+    return psi * prod(pvals) + (1-psi)
+  end
+  
+  return psi * prod(pvals)
+end
+
+#Get counts for each observed encounter history
+function get_obs_counts(fit::Occu)
+  eh_strings = mapslices(x -> string(x...), fit.data.y, dims=2)
+  return countmap(eh_strings)
+end
+
+#Get expected counts of each observed encounter history
+function get_exp_counts(fit::Occu)
+  N,J = size(fit.data.y)
+
+  obs_counts = get_obs_counts(fit)
+
+  eh_obs = collect(keys(obs_counts))
+  nobs = length(eh_obs)
+
+  psi = predict(occupancy(fit))
+  p = predict(detection(fit))
+
+  counts_expect = fill(0.0, nobs)
+  for i = 1:nobs
+    pstart = 1
+    
+    for j = 1:N
+      pend = pstart + J - 1
+      counts_expect[i] += get_prob_eh(eh_obs[i], p[pstart:pend], psi[j])
+      pstart += J
+    end
+  end
+
+  return Dict(zip(eh_obs, counts_expect))
+end
+
+#Compute MacKenzie-Bailey (2004) chi-square statistic
+function mb_chisq(fit::Occu)
+  
+  N = size(fit.data.y)[1]
+
+  obs_dict = get_obs_counts(fit)
+  exp_dict = get_exp_counts(fit)
+
+  neh = length(obs_dict)
+
+  obs = collect(values(obs_dict))
+  exp = collect(values(exp_dict))
+
+  #For observed encounter histories
+  chisq_prt1 = sum(map(x -> (obs[x] - exp[x])^2 / exp[x], 1:neh))
+
+  #For unobserved encounter histories
+  chisq_prt2 = maximum([0, N - sum(exp)])
+
+  return chisq_prt1 + chisq_prt2
+end
+
+"""
+    gof(fit::Occu, nsims::Int=50)
+
+Compute the MacKenzie-Bailey (2004) goodness-of-fit test for a
+single-season occupancy model. The distribution of the test statistic
+is generated using parametric bootstrapping with `nsims` simulations.
+"""
+function gof(fit::Occu, nsims::Int=50)
+  test_name = "MacKenzie-Bailey Goodness-of-fit"
+  t0 = mb_chisq(fit)
+  tstar = parboot(fit, nsims, mb_chisq)
+  return UmGOF(test_name,t0, tstar)
+end
+
+function Base.show(io::IO, gof::UmGOF)
+  pval = mean(gof.tstar .> gof.t0)
+  chat = gof.t0 / mean(gof.tstar)
+  println()
+  println(gof.test_name)
+  println()
+  println(string("  χ2 = ", @sprintf("%.4f",round(gof.t0, digits=4))))
+  println(string("  P-value = ", @sprintf("%.4f",round(pval, digits=4))))
+  print(string("  Est. c-hat = ", 
+               @sprintf("%.4f", round(chat, digits=4))))
 end

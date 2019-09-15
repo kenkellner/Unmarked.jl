@@ -157,3 +157,8 @@ end
 function nobs(x::UnmarkedModel)
   return size(x.data.y)[1]
 end
+
+#Model matrix
+function modelmatrix(x::UnmarkedSubmodel)
+  UmDesign(x).mat
+end

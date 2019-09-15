@@ -19,8 +19,8 @@ pr_df = DataFrame(elev=[0.5, -0.3], forest=[1,-1]);
 
 predict(occupancy(fit), pr_df, interval=true) 
 
-#Simulate
-s = simulate(fit);
+#Goodness-of-fit
+gof(fit)
 
 #Missing values
 yna = Array{Union{Int,Missing}}(y)
@@ -29,8 +29,4 @@ yna[2,1] = missing
 
 inp2 = UmData(yna, site_covs, obs_covs);
 
-fit2 = occu(@formula(psi~elev+forest), @formula(p~precip+wind), inp2);
-
-fit2
-
-df = DataFrame(elev=[1,2],forest=[3,4],ψ=[0,0])
+fit2 = occu(@formula(psi~elev+forest), @formula(p~precip+wind), inp2)

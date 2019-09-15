@@ -15,12 +15,15 @@ p_formula = @formula(p~precip+wind);
 umd = simulate(Occu, ψ_formula, p_formula, [1000, 5], β_truth);
 
 #Fit the model
-fit = occu(ψ_formula, p_formula, umd)
+mod = fit(Occu, ψ_formula, p_formula, umd)
 
 #Compare with true coefficient values
-hcat(coef(fit), β_truth)
+hcat(coef(mod), β_truth)
 
 #Predict occupancy probabilities from DataFrame
-pr_df = DataFrame(elev=[0.5, -0.3], forest=[1,-1]);
-predict(occupancy(fit), pr_df)
+newdata = DataFrame(elev=[0.5, -0.3], forest=[1,-1]);
+predict(occupancy(mod), newdata)
+
+#Goodness-of-fit
+gof(mod)
 ```
