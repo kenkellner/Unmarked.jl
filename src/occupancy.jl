@@ -79,6 +79,12 @@ function simulate(fit::Occu)
   p = predict(detection(fit))
   
   y = _sim_y_occu(ψ, p, ydims)
+
+  #Replicate missing observations
+  na_idx = findall(ismissing.(fit.data.y))
+  if length(na_idx) > 0
+    y[na_idx] = fill(missing, length(na_idx))
+  end
   
   UmData(y, fit.data.site_covs, fit.data.obs_covs)
 end
@@ -112,7 +118,7 @@ function _sim_y_occu(ψ::Array, p::Array, ydims::Array)
   
   N,J = ydims
   z = map(x -> rand(Binomial(1, x))[1], ψ)
-  y = Array{Int}(undef, N, J)
+  y = Array{Union{Int,Missing}}(undef, N, J)
   idx = 0
   for i = 1:N
     for j = 1:J
@@ -132,12 +138,30 @@ end
 
 # Goodness-of-fit -------------------------------------------------------------
 
-#Get probability of a particular encounter history
-function get_prob_eh(eh::String, pvec::Array, psi::Float64)
-  ehv =  parse.(Int, split(eh,""))
-  pvals = (ehv .* pvec) + (1 .- ehv) .* (1 .- pvec)
+#Get cohorts with unique NA placement
+function get_cohorts(fit::Occu)
+  data = fit.data
+  na_pattern = mapslices(x -> string(ismissing.(x)*1...), data.y, dims=2)[:,1]
+  cohorts = string.(keys(countmap(na_pattern)))
+
+  out = []
+  for i in 1:length(cohorts)
+    #Discard cohort where all obs are NAs
+    if cohorts[i] == repeat("1", size(data.y)[2]) continue end
+    idx = findall(na_pattern .== cohorts[i])
+    push!(out, data[idx])
+  end
+
+  return out
+end
   
-  if sum(ehv) == 0
+#Get probability of a particular encounter history
+function get_prob_eh(::Type{Occu}, eh::String, pvec::Array, psi::Float64)
+  ehv = map(x -> x == "missing" ? missing : parse(Int, x), split(eh, " "))
+  pvals = (ehv .* pvec) + (1 .- ehv) .* (1 .- pvec)
+  pvals = collect(skipmissing(pvals))
+  
+  if sum(skipmissing(ehv)) == 0
     return psi * prod(pvals) + (1-psi)
   end
   
@@ -145,22 +169,22 @@ function get_prob_eh(eh::String, pvec::Array, psi::Float64)
 end
 
 #Get counts for each observed encounter history
-function get_obs_counts(fit::Occu)
-  eh_strings = mapslices(x -> string(x...), fit.data.y, dims=2)
+function get_obs_counts(fit::Occu, data::UmData)
+  eh_strings = mapslices(x -> join(x, " "), data.y, dims=2)
   return countmap(eh_strings)
 end
 
 #Get expected counts of each observed encounter history
-function get_exp_counts(fit::Occu)
-  N,J = size(fit.data.y)
+function get_exp_counts(fit::Occu, data::UmData)
+  N,J = size(data.y)
 
-  obs_counts = get_obs_counts(fit)
+  obs_counts = get_obs_counts(fit, data)
 
   eh_obs = collect(keys(obs_counts))
   nobs = length(eh_obs)
 
-  psi = predict(occupancy(fit))
-  p = predict(detection(fit))
+  psi = predict(occupancy(fit), data.site_covs)
+  p = predict(detection(fit), data.obs_covs)
 
   counts_expect = fill(0.0, nobs)
   for i = 1:nobs
@@ -168,7 +192,7 @@ function get_exp_counts(fit::Occu)
     
     for j = 1:N
       pend = pstart + J - 1
-      counts_expect[i] += get_prob_eh(eh_obs[i], p[pstart:pend], psi[j])
+      counts_expect[i] += get_prob_eh(Occu, eh_obs[i], p[pstart:pend], psi[j])
       pstart += J
     end
   end
@@ -179,23 +203,32 @@ end
 #Compute MacKenzie-Bailey (2004) chi-square statistic
 function mb_chisq(fit::Occu)
   
-  N = size(fit.data.y)[1]
+  #Divide dataset into cohorts based on NA placement
+  cohorts = get_cohorts(fit::Occu)
 
-  obs_dict = get_obs_counts(fit)
-  exp_dict = get_exp_counts(fit)
+  chisq_all = fill(0.0, length(cohorts))
+  for i in 1:length(cohorts)
 
-  neh = length(obs_dict)
+    N = size(cohorts[i].y)[1]
 
-  obs = collect(values(obs_dict))
-  exp = collect(values(exp_dict))
+    obs_dict = get_obs_counts(fit, cohorts[i])
+    exp_dict = get_exp_counts(fit, cohorts[i])
 
-  #For observed encounter histories
-  chisq_prt1 = sum(map(x -> (obs[x] - exp[x])^2 / exp[x], 1:neh))
+    neh = length(obs_dict)
 
-  #For unobserved encounter histories
-  chisq_prt2 = maximum([0, N - sum(exp)])
+    obs = collect(values(obs_dict))
+    exp = collect(values(exp_dict))
 
-  return chisq_prt1 + chisq_prt2
+    #For observed encounter histories
+    chisq_prt1 = sum(map(x -> (obs[x] - exp[x])^2 / exp[x], 1:neh))
+
+    #For unobserved possible encounter histories
+    chisq_prt2 = maximum([0, N - sum(exp)])
+
+    chisq_all[i] = chisq_prt1 + chisq_prt2
+  end
+
+  return sum(chisq_all)
 end
 
 """

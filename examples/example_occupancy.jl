@@ -23,10 +23,12 @@ predict(occupancy(fit), pr_df, interval=true)
 gof(fit)
 
 #Missing values
-yna = Array{Union{Int,Missing}}(y)
-yna[1,:] = fill(missing, J)
+yna = Array{Union{Int,Missing}}(deepcopy(umd.y))
+yna[1,:] = fill(missing, 5)
 yna[2,1] = missing
 
-inp2 = UmData(yna, site_covs, obs_covs);
+inp2 = UmData(yna, umd.site_covs, umd.obs_covs);
 
 fit2 = occu(@formula(psi~elev+forest), @formula(p~precip+wind), inp2)
+
+gof(fit2)

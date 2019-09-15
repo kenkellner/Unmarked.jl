@@ -3,7 +3,7 @@ module Unmarked
 using StatsBase, StatsModels, StatsFuns, Distributions, Random, Printf
 using LinearAlgebra, DataFrames, Optim, NLSolversBase, ForwardDiff
 
-import Base.show
+import Base: show, getindex
 import StatsBase: aic, aicc, bic, coef, coefnames, coeftable, deviance, dof,
                   fit, loglikelihood, modelmatrix, predict, nobs, stderror, 
                   vcov
