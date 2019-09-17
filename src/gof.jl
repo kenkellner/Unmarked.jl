@@ -10,7 +10,7 @@ function parboot(fit::UnmarkedModel, nsims::Int, statistic::Any)
 
   out = Array{Float64}(undef, nsims)
 
-  for i = 1:nsims
+  @showprogress 1 string("Bootstrap (",nsims," sims) ") for i = 1:nsims
     new_data = simulate(fit)
     new_fit = update(fit, new_data)
     out[i] = statistic(new_fit)
