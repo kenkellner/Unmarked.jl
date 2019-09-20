@@ -16,8 +16,7 @@ function occu(ψ_formula::FormulaTerm, p_formula::FormulaTerm, data::UmData)
   
   occ = UmDesign(:Occupancy, ψ_formula, LogitLink(), data.site_covs)
   det = UmDesign(:Detection, p_formula, LogitLink(), data.obs_covs)
-  add_idx!([occ, det])
-  np = det.idx.stop
+  np = add_idx!([occ, det])
 
   y = data.y
   N, J = size(y)
@@ -69,6 +68,21 @@ function fit(::Type{Occu}, ψ_formula::FormulaTerm, p_formula::FormulaTerm,
   occu(ψ_formula, p_formula, data)
 end
 
+#Fit multiple models at once
+function occu(ψ_formula::Union{Array,FormulaTerm}, 
+              p_formula::Union{Array,FormulaTerm}, data::UmData)
+
+  ψ_formula = ψ_formula isa FormulaTerm ? [ψ_formula] : ψ_formula
+  p_formula = p_formula isa FormulaTerm ? [p_formula] : p_formula 
+  form_combs = collect(Base.product(ψ_formula, p_formula))
+  form_combs = reshape(form_combs, length(form_combs))
+  msg = string("Fitting ", length(form_combs), " models ")
+
+  out = @showprogress 1 msg map(x -> occu(x[1], x[2], data), form_combs)
+
+  return UnmarkedModels(out)
+end
+
 # Simulations------------------------------------------------------------------
 
 "Simulate new dataset from a fitted model"
@@ -98,9 +112,8 @@ function simulate(::Type{Occu}, ψ_formula::FormulaTerm,
 
   occ = UmDesign(:Occ, ψ_formula, LogitLink(), sc)
   det = UmDesign(:Det, p_formula, LogitLink(), oc)
-  add_idx!([occ, det])
+  np = add_idx!([occ, det])
 
-  np = det.idx.stop
   if np != length(coef)
     error(string("Coef array must be length ",np))
   end

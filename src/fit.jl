@@ -1,3 +1,4 @@
+#Optimization------------------------------------------------
 "Optimization output structure"
 struct UnmarkedOpt
   coef::Array{Float64}
@@ -19,8 +20,21 @@ function optimize_loglik(loglik, np)
   UnmarkedOpt(param, vcov, loglik)
 end
 
+#Model structures--------------------------------------------
 "Fitted model output type"
 abstract type UnmarkedModel <: RegressionModel end
+
+"List of fitted Unmarked models"
+struct UnmarkedModels
+  models::Array{UnmarkedModel}
+end
+
+#Methods for UnmarkedModels
+function Base.getindex(um::UnmarkedModels, i::Int)
+  return um.models[i]
+end
+
+function length(m::UnmarkedModels) length(m.models) end
 
 "Submodel output structure"
 struct UnmarkedSubmodel <: RegressionModel
@@ -38,7 +52,7 @@ function UnmarkedSubmodel(ud::UmDesign, opt::UnmarkedOpt)
                    opt.vcov[ud.idx,ud.idx], ud.coefnames, ud.data)
 end
 
-#Submodel extractors
+#Submodel extractors-----------------------------------------------
 "Get detection model"
 function detection(fit::UnmarkedModel)
   fit.submodels.det
@@ -54,6 +68,20 @@ function abundance(fit::UnmarkedModel)
   fit.submodels.abun
 end
 
+#Get short model name-------------------------------------------------
+
+function short_name(fit::Unmarked.UnmarkedSubmodel)
+  out = string(string(fit.formula.lhs),"(",string(fit.formula.rhs),")")
+  out = replace(out, " " => "")
+  return replace(out, "1" => ".")
+end
+
+function short_name(fit::Unmarked.UnmarkedModel)
+  join(map(x -> short_name(x), fit.submodels)) 
+end
+
+#Re-create design matrices from fitted models-------------------------
+
 "Outer constructor that re-creates design matrices from fitted model"
 function UmDesign(um::UnmarkedSubmodel)
   UmDesign(um.name, um.formula, um.link, um.data)
@@ -64,23 +92,7 @@ function UmDesign(um::UnmarkedSubmodel, newdata::DataFrame)
   UmDesign(um.name, um.formula, um.link, newdata)
 end
 
-#Method for coeftable
-function coeftable(um::UnmarkedSubmodel; level::Real=0.95)
-  
-  c = coef(um)
-  se = stderror(um)
-  z = abs.(c ./ se)
-  pval = map(x -> 2*ccdf(Normal(0,1), x), z)
-  ci = se*quantile(Normal(), (1-level)/2)
-  levstr = level*100
-  levstr = isinteger(levstr) ? string(Integer(levstr)) : string(levstr)
-  CoefTable([c, se, z, pval, c+ci, c-ci], 
-            ["Estimate", "Std.Error", "z value", "Pr(>|z|)",
-             "Lower $levstr%","Upper $levstr%"],
-            coefnames(um), 4, 3)
-end
-
-#Show methods
+#Show methods---------------------------------------------------------
 function Base.show(io::IO, um::UnmarkedSubmodel)
   println()
   println(string(um.name, ": ", um.formula))
@@ -99,7 +111,35 @@ function Base.show(io::IO, fit::UnmarkedModel)
 
 end
 
-## Misc. methods reguired for RegressionModel interface
+function Base.show(io::IO, um::UnmarkedModels)
+  r = sortperm(aic.(um.models))
+  a = round.(map(x->aic(x),um.models)[r], digits=2)
+  da = round.(a .- minimum(a), digits=2)
+  wt = exp.(-1 .* da ./ 2)
+  wt = round.(wt ./ sum(wt), digits=2)
+  tab = [r map(x->short_name(x),um.models)[r] a da wt]
+  pretty_table(tab, ["No.", "Model", "AIC", "ΔAIC", "Weight"],
+               alignment=[:l,:l,:r,:r,:r],
+               formatter=ft_printf("%.2f",[3,4,5]))
+end
+
+#Misc. methods reguired for RegressionModel interface-----------------
+
+#Coeftable
+function coeftable(um::UnmarkedSubmodel; level::Real=0.95)
+  
+  c = coef(um)
+  se = stderror(um)
+  z = abs.(c ./ se)
+  pval = map(x -> 2*ccdf(Normal(0,1), x), z)
+  ci = se*quantile(Normal(), (1-level)/2)
+  levstr = level*100
+  levstr = isinteger(levstr) ? string(Integer(levstr)) : string(levstr)
+  CoefTable([c, se, z, pval, c+ci, c-ci], 
+            ["Estimate", "Std.Error", "z value", "Pr(>|z|)",
+             "Lower $levstr%","Upper $levstr%"],
+            coefnames(um), 4, 3)
+end
 
 #Return coefficient values
 function coef(x::UnmarkedModel)

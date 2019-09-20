@@ -56,6 +56,7 @@ function add_idx!(dm::Array{UmDesign})
     x.idx = idx:(idx+np-1)
     idx += np
   end
+  return idx - 1
 end
 
 #Transform linear predictor back to response scale"

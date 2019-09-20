@@ -22,6 +22,12 @@ predict(occupancy(fit), pr_df, interval=true)
 #Goodness-of-fit
 gof(fit)
 
+#Fit all subsets of covariates
+fit_all = occu(allsub(ψ_formula), allsub(p_formula), umd);
+
+#Model selection table
+fit_all
+
 #Missing values
 yna = Array{Union{Int,Missing}}(deepcopy(umd.y))
 yna[1,:] = fill(missing, 5)

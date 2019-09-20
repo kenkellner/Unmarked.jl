@@ -1,4 +1,4 @@
-@testset "Link functions" begin
+@testset "Links" begin
   
   #Logit link
   @test isequal(Unmarked.invlink(0.5, Unmarked.LogitLink()), logistic(0.5))

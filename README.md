@@ -26,4 +26,7 @@ predict(occupancy(mod), newdata)
 
 #Goodness-of-fit
 gof(mod)
+
+#Fit all subsets of model covariates and compare with AIC
+occu(allsub(ψ_formula), allsub(p_formula), umd)
 ```
