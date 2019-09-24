@@ -5,17 +5,17 @@ struct Occu <: UnmarkedModel
 end
 
 """
-    occu(ψ_formula::FormulaTerm, p_formula::FormulaTerm, data::Umdata)
+    occu(ψ_form::FormulaTerm, p_form::FormulaTerm, data::Umdata)
 
 Fit single-season occupancy models. Covariates on occupancy and detection 
-are specified with `ψ_formula` and `p_formula`, respectively. The `UmData`
+are specified with `ψ_form` and `p_form`, respectively. The `UmData`
 object should contain `site_covs` and `obs_covs` `DataFrames` containing
 columns with names matching the formulas.
 """
-function occu(ψ_formula::FormulaTerm, p_formula::FormulaTerm, data::UmData)
+function occu(ψ_form::FormulaTerm, p_form::FormulaTerm, data::UmData)
   
-  occ = UmDesign(:Occupancy, ψ_formula, LogitLink(), data.site_covs)
-  det = UmDesign(:Detection, p_formula, LogitLink(), data.obs_covs)
+  occ = UmDesign(:Occupancy, ψ_form, LogitLink(), data.site_covs)
+  det = UmDesign(:Detection, p_form, LogitLink(), data.obs_covs)
   np = add_idx!([occ, det])
 
   y = data.y
@@ -54,32 +54,21 @@ function occu(ψ_formula::FormulaTerm, p_formula::FormulaTerm, data::UmData)
                    det=UnmarkedSubmodel(det,opt)))
 end
 
-#Fit alias
 """
-    fit(Occu, ψ_formula::FormulaTerm, p_formula::FormulaTerm, data::Umdata)
+    occu(ψ_formula::Union{Array,FormulaTerm}, 
+         p_formula::Union{Array,FormulaTerm}, data::UmData)
 
-Fit single-season occupancy models. Covariates on occupancy and detection 
-are specified with `ψ_formula` and `p_formula`, respectively. The `UmData`
-object should contain `site_covs` and `obs_covs` `DataFrames` containing
-columns with names matching the formulas.
+Provide multiple formulas for ψ and/or p and fit models for all formula
+combinations. To fit all model subsets, wrap formula with `allsubs()`.
 """
-function fit(::Type{Occu}, ψ_formula::FormulaTerm, p_formula::FormulaTerm,
-             data::UmData)
-  occu(ψ_formula, p_formula, data)
-end
-
-#Fit multiple models at once
-function occu(ψ_formula::Union{Array,FormulaTerm}, 
-              p_formula::Union{Array,FormulaTerm}, data::UmData)
-
-  ψ_formula = ψ_formula isa FormulaTerm ? [ψ_formula] : ψ_formula
-  p_formula = p_formula isa FormulaTerm ? [p_formula] : p_formula 
-  form_combs = collect(Base.product(ψ_formula, p_formula))
-  form_combs = reshape(form_combs, length(form_combs))
-  msg = string("Fitting ", length(form_combs), " models ")
-
-  out = @showprogress 1 msg map(x -> occu(x[1], x[2], data), form_combs)
-
+function occu(ψ_form::Union{Array,FormulaTerm}, 
+              p_form::Union{Array,FormulaTerm}, data::UmData)
+  cf = combine_formulas(ψ_form, p_form)
+  msg = string("Fitting ", length(cf), " models ")
+  out = Array{UnmarkedModel}(undef, length(cf))
+  @showprogress 1 msg for i in 1:length(cf)
+    out[i] = occu(cf[i][1], cf[i][2], data)
+  end
   return UnmarkedModels(out)
 end
 
@@ -88,48 +77,41 @@ end
 "Simulate new dataset from a fitted model"
 function simulate(fit::Occu)
   
-  ydims = collect(size(fit.data.y))
   ψ = predict(occupancy(fit))
   p = predict(detection(fit))
-  
-  y = _sim_y_occu(ψ, p, ydims)
-
-  #Replicate missing observations
-  na_idx = findall(ismissing.(fit.data.y))
-  if length(na_idx) > 0
-    y[na_idx] = fill(missing, length(na_idx))
-  end
+ 
+  y = sim_y(Occu, ψ, p)
+  rep_missing!(y, fit.data.y)
   
   UmData(y, fit.data.site_covs, fit.data.obs_covs)
 end
 
 "Simulate new dataset from provided formulas"
-function simulate(::Type{Occu}, ψ_formula::FormulaTerm, 
-                  p_formula::FormulaTerm, ydims::Array{Int}, coef::Array)
+function simulate(::Type{Occu}, ψ_form::FormulaTerm, p_form::FormulaTerm, 
+                  ydims::Tuple{Int,Int}, coef::Array)
  
-  sc = gen_covs(ψ_formula, ydims[1])
-  oc = gen_covs(p_formula, ydims[1] * ydims[2])
+  sc = gen_covs(ψ_form, ydims[1])
+  oc = gen_covs(p_form, prod(ydims))
 
-  occ = UmDesign(:Occ, ψ_formula, LogitLink(), sc)
-  det = UmDesign(:Det, p_formula, LogitLink(), oc)
+  occ = UmDesign(:Occ, ψ_form, LogitLink(), sc)
+  det = UmDesign(:Det, p_form, LogitLink(), oc)
   np = add_idx!([occ, det])
 
-  if np != length(coef)
-    error(string("Coef array must be length ",np))
-  end
+  if np != length(coef) error(string("Coef array must be length ",np)) end
 
   ψ = transform(occ, coef)
   p = transform(det, coef)
 
-  y = _sim_y_occu(ψ, p, ydims)
+  y = sim_y(Occu, ψ, p)
 
   UmData(y, sc, oc)
 end
 
 #Simulate y matrix from provided psi and p vectors"
-function _sim_y_occu(ψ::Array, p::Array, ydims::Array)
+function sim_y(::Type{Occu}, ψ::Array, p::Array)
   
-  N,J = ydims
+  N = length(ψ)
+  J = Integer(length(p) / N)
   z = map(x -> rand(Binomial(1, x))[1], ψ)
   y = Array{Union{Int,Missing}}(undef, N, J)
   idx = 0

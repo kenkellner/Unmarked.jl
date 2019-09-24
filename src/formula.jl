@@ -31,6 +31,12 @@ function get_unique(f::Tuple)
   return unique(out)
 end
 
+function combine_formulas(formulas::Union{Array,FormulaTerm}...)
+  formulas = map(x -> x isa FormulaTerm ? [x] : x, formulas)
+  form_combs = collect(Base.product(formulas...))
+  return reshape(form_combs, length(form_combs))
+end
+
 """
 
     allsub(f::FormulaTerm)

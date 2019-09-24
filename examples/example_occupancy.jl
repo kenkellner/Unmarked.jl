@@ -1,12 +1,10 @@
-using Unmarked, Random, DataFrames
-
-Random.seed!(123);
+using Unmarked, DataFrames
 
 ψ_formula = @formula(ψ~elev+forest);
 p_formula = @formula(p~precip+wind);
 β_truth = [0, -0.5, 1.2, -0.2, 0, 0.7];
 
-umd = simulate(Occu, ψ_formula, p_formula, [1000, 5], β_truth);
+umd = simulate(Occu, ψ_formula, p_formula, (1000, 5), β_truth);
 
 fit = occu(ψ_formula, p_formula, umd);
 

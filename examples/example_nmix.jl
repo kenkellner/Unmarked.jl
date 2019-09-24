@@ -1,71 +1,25 @@
-using Random: seed!, rand
-using Distributions: Normal, Binomial, Poisson
-using DataFrames: DataFrame, nrow
-using StatsModels: @formula, ModelFrame, ModelMatrix
-using StatsFuns: logistic, logit
+using Unmarked, DataFrames
 
-using Unmarked
+λ_formula = @formula(λ~elev+forest);
+p_formula = @formula(p~precip+wind);
+β_truth = [0, -0.3, 0.7, -0.2, 0, 0.7];
 
-seed!(123);
+umd = simulate(Nmix, λ_formula, p_formula, (1000, 5), β_truth);
 
-#Simulate data
+fit = nmix(λ_formula, p_formula, umd);
 
-N = 1000;
-J = 5;
+hcat(coef(fit), β_truth)
 
-#state covariates
-site_covs = DataFrame(elev=rand(Normal(0,1),N),
-                      forest=rand(Normal(0,1),N));
+#Prediction
+pr_df = DataFrame(elev=[0.5, -0.3], forest=[1,-1]);
 
-site_covs[!,:lam] = zeros(N);
+predict(abundance(fit), pr_df, interval=true) 
 
-mm = ModelMatrix(ModelFrame(@formula(lam~elev+forest), site_covs));
+#Goodness-of-fit (not yet implemented)
+#gof(fit)
 
-lam_truth = [0, -0.5, 1.2];
+#Fit all subsets of covariates
+fit_all = nmix(allsub(λ_formula), allsub(p_formula), umd);
 
-lam = exp.(mm.m * lam_truth);
-
-a = Array{Int}(undef,N); 
-for i = 1:N
-  a[i] = rand(Poisson(lam[i]),1)[1];
-end
-
-#Detection
-
-#obs covariates
-obs_covs = DataFrame(precip=rand(Normal(0,1),N*J),
-                     wind=rand(Normal(0,1),N*J));
-
-obs_covs[!,:p] = zeros(N*J);
-
-mm = ModelMatrix(ModelFrame(@formula(p~precip+wind), obs_covs));
-
-p_truth = [-0.2, 0, 0.7];
-
-p = logistic.(mm.m * p_truth);
-
-y = Array{Int}(undef, N, J);
-idx = 1;
-for i = 1:N
-  for j = 1:J
-    if a[i] == 0;
-      y[i,j] = 0;
-    else
-      y[i,j] = rand(Binomial(a[i], p[idx]))[1];
-    end
-    global idx += 1;
-  end
-end
-
-inp = UmData(y, site_covs, obs_covs);
-
-fit = Nmix(@formula(λ~elev+forest), @formula(p~precip+wind), inp)
-
-pr_df = DataFrame(elev=[0.2,-0.5], forest=[-0.3,0.7])
-
-predict(fit.models.abun, pr_df)
-
-#Supply K
-
-K = maximum(inp.y) + 10
-fit2 = Nmix(@formula(λ~elev+forest), @formula(p~precip+wind), inp, K)
+#Model selection table
+fit_all

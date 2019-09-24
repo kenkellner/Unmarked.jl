@@ -118,7 +118,7 @@ function Base.show(io::IO, um::UnmarkedModels)
   wt = exp.(-1 .* da ./ 2)
   wt = round.(wt ./ sum(wt), digits=2)
   tab = [r map(x->short_name(x),um.models)[r] a da wt]
-  pretty_table(tab, ["No.", "Model", "AIC", "ΔAIC", "Weight"],
+  pretty_table(tab, ["No.", "Model", "AIC", "Δ AIC", "Weight"],
                alignment=[:l,:l,:r,:r,:r],
                formatter=ft_printf("%.2f",[3,4,5]))
 end
@@ -135,9 +135,9 @@ function coeftable(um::UnmarkedSubmodel; level::Real=0.95)
   ci = se*quantile(Normal(), (1-level)/2)
   levstr = level*100
   levstr = isinteger(levstr) ? string(Integer(levstr)) : string(levstr)
-  CoefTable([c, se, z, pval, c+ci, c-ci], 
-            ["Estimate", "Std.Error", "z value", "Pr(>|z|)",
-             "Lower $levstr%","Upper $levstr%"],
+  CoefTable(map(x->round.(x,digits=4), [c, se, z, pval, c+ci, c-ci]), 
+            ["Estimate", "SE", "z", "Pr(>|z|)",
+             "Low $levstr%","Up $levstr%"],
             coefnames(um), 4, 3)
 end
 

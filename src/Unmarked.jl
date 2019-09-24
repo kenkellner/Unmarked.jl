@@ -8,12 +8,11 @@ using ProgressMeter: @showprogress
 
 import Base: show, getindex, length
 import StatsBase: aic, aicc, bic, coef, coefnames, coeftable, deviance, dof,
-                  fit, loglikelihood, modelmatrix, predict, nobs, stderror, 
-                  vcov
+                  loglikelihood, modelmatrix, predict, nobs, stderror, vcov
 
 export UmData, Occu, Nmix
 export @formula
-export aic, aicc, bic, coef, coefnames, coeftable, deviance, dof, fit, gof, 
+export aic, aicc, bic, coef, coefnames, coeftable, deviance, dof, gof, 
        loglikelihood, modelmatrix, nobs, predict, simulate, stderror, vcov
 
 #Fitting functions       

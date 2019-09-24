@@ -3,7 +3,7 @@
   #Test separating cohorts by NA pattern
   Random.seed!(123)
   umd1 = simulate(Occu, @formula(ψ~elev+forest), @formula(p~wind+precip),
-                  [10, 3], [0,0,0,0,0,0])
+                  (10,3), [0,0,0,0,0,0])
   fit1 = occu(@formula(ψ~elev), @formula(p~wind), umd1)
   
   gc = Unmarked.get_cohorts(fit1)

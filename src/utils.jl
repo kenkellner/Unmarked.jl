@@ -15,3 +15,10 @@ function gen_covs(f::FormulaTerm, n::Int)
   DataFrames.names!(out, covs)
   out
 end
+
+#Replicate missing values in a new simulated y matrix
+function rep_missing!(ynew::Array, y::Array)
+  na_idx = findall(ismissing.(y))
+  if length(na_idx) == 0 return nothing end
+  ynew[na_idx] = fill(missing, length(na_idx))
+end

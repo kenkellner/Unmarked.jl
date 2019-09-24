@@ -4,17 +4,27 @@ struct Nmix <: UnmarkedModel
   submodels::NamedTuple
 end
 
-"Fit N-mixture models"
+"""
+    nmix(λ_formula::FormulaTerm, p_formula::FormulaTerm, data::UmData, K::Int)
+
+Fit single-season N-mixture models. Covariates on abundance and detection 
+are specified with `λ_formula` and `p_formula`, respectively. The `UmData`
+object should contain `site_covs` and `obs_covs` `DataFrames` containing
+columns with names matching the formulas. The likelihood is marginalized over
+possible latent abundance values `0:K` for each site. `K` should be set high
+enough that the likelihood of true abundance `K` for any site is ≈ 0 (defaults 
+to maximum observed count + 20). Larger `K` will increase runtime.
+"""
 function nmix(λ_formula::FormulaTerm, p_formula::FormulaTerm, 
-              data::UmData, K::Int)
+              data::UmData, K::Union{Int,Nothing}=nothing)
   
   abun = UmDesign(:Abundance, λ_formula, LogLink(), data.site_covs)
   det = UmDesign(:Detection, p_formula, LogitLink(), data.obs_covs)
-  add_idx!([abun, det])
-  np = det.idx.stop
+  np = add_idx!([abun, det])
 
   y = data.y
   N, J = size(y)
+  K = isnothing(K) ? maximum(y) + 20 : K
 
   function loglik(β::Array)
   
@@ -57,16 +67,86 @@ function nmix(λ_formula::FormulaTerm, p_formula::FormulaTerm,
   end
 
   opt = optimize_loglik(loglik, np)
-  UmFitNmix(data, opt, (abun=UnmarkedSubmodel(abun,opt), 
-                  det=UnmarkedSubmodel(det,opt)))
-
+  Nmix(data, opt, (abun=UnmarkedSubmodel(abun,opt), 
+            det=UnmarkedSubmodel(det,opt)))
 end
 
-function nmix(λ_formula::FormulaTerm, p_formula::FormulaTerm, 
-              data::UmData)
+#Fit multiple models at once
+"""
+    nmix(λ_formula::Union{Array,FormulaTerm}, 
+         p_formula::Union{Array,FormulaTerm}, data::UmData, K::Int)
 
-  K = maximum(data.y) + 20
-  nmix(λ_formula, p_formula, data, K)
+Provide multiple formulas for λ and/or p and fit models for all formula
+combinations. To fit all model subsets, wrap formula with `allsubs()`.
+"""
+
+function nmix(λ_form::Union{Array,FormulaTerm}, 
+              p_form::Union{Array,FormulaTerm}, 
+              data::UmData, K::Union{Int,Nothing}=nothing)
+  cf = combine_formulas(λ_form, p_form)
+  msg = string("Fitting ", length(cf), " models ")
+  out = Array{UnmarkedModel}(undef, length(cf))
+  @showprogress 1 msg for i in 1:length(cf) 
+    out[i] = nmix(cf[i][1],cf[i][2], data, K)
+  end
+  return UnmarkedModels(out)
+end
+
+# Simulations------------------------------------------------------------------
+
+"Simulate new dataset from a fitted model"
+function simulate(fit::Nmix)
   
+  ydims = collect(size(fit.data.y))
+  λ = predict(abundance(fit))
+  p = predict(detection(fit))
+  
+  y = sim_y(λ, p, ydims)
+  rep_missing!(y, fit.data.y)
+ 
+  UmData(y, fit.data.site_covs, fit.data.obs_covs)
 end
 
+"Simulate new dataset from provided formulas"
+function simulate(::Type{Nmix}, λ_form::FormulaTerm, p_form::FormulaTerm, 
+                  ydims::Tuple{Int,Int}, coef::Array)
+ 
+  sc = gen_covs(λ_form, ydims[1])
+  oc = gen_covs(p_form, prod(ydims))
+
+  abun = UmDesign(:Abun, λ_form, LogLink(), sc)
+  det = UmDesign(:Det, p_form, LogitLink(), oc)
+  np = add_idx!([abun, det])
+
+  if np != length(coef) error(string("Coef array must be length ",np)) end
+
+  λ = transform(abun, coef)
+  p = transform(det, coef)
+
+  y = sim_y(Nmix, λ, p)
+
+  UmData(y, sc, oc)
+end
+
+function sim_y(::Type{Nmix}, λ::Array, p::Array)
+  
+  N = length(λ)
+  J = Integer(length(p) / N)
+  z = map(x -> rand(Poisson(x))[1], λ)
+  y = Array{Union{Int,Missing}}(undef, N, J)
+  idx = 0
+  for i = 1:N
+    for j = 1:J
+      idx += 1
+      y[i,j] = z[i] == 0 ? 0 : rand(Binomial(z[i], p[idx]))[1]
+    end
+  end
+
+  return y
+end
+
+# Update ----------------------------------------------------------------------
+
+function update(fit::Nmix, data::UmData)
+  nmix(abundance(fit).formula, detection(fit).formula, data)
+end
