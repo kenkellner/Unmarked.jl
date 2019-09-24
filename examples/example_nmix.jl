@@ -15,11 +15,22 @@ pr_df = DataFrame(elev=[0.5, -0.3], forest=[1,-1]);
 
 predict(abundance(fit), pr_df, interval=true) 
 
-#Goodness-of-fit (not yet implemented)
-#gof(fit)
+#Goodness-of-fit
+gof(fit)
 
 #Fit all subsets of covariates
 fit_all = nmix(allsub(λ_formula), allsub(p_formula), umd);
 
 #Model selection table
 fit_all
+
+#Missing values (broken right now)
+yna = Array{Union{Int,Missing}}(deepcopy(umd.y))
+yna[1,:] = fill(missing, 5)
+yna[2,1] = missing
+
+inp2 = UmData(yna, umd.site_covs, umd.obs_covs);
+
+fit2 = nmix(@formula(psi~elev+forest), @formula(p~precip+wind), inp2)
+
+gof(fit2)

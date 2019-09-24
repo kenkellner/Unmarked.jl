@@ -2,6 +2,7 @@ struct Nmix <: UnmarkedModel
   data::UmData
   opt::UnmarkedOpt
   submodels::NamedTuple
+  K::Int
 end
 
 """
@@ -68,7 +69,7 @@ function nmix(λ_formula::FormulaTerm, p_formula::FormulaTerm,
 
   opt = optimize_loglik(loglik, np)
   Nmix(data, opt, (abun=UnmarkedSubmodel(abun,opt), 
-            det=UnmarkedSubmodel(det,opt)))
+            det=UnmarkedSubmodel(det,opt)), K)
 end
 
 #Fit multiple models at once
@@ -101,7 +102,7 @@ function simulate(fit::Nmix)
   λ = predict(abundance(fit))
   p = predict(detection(fit))
   
-  y = sim_y(λ, p, ydims)
+  y = sim_y(Nmix, λ, p)
   rep_missing!(y, fit.data.y)
  
   UmData(y, fit.data.site_covs, fit.data.obs_covs)
@@ -148,5 +149,38 @@ end
 # Update ----------------------------------------------------------------------
 
 function update(fit::Nmix, data::UmData)
-  nmix(abundance(fit).formula, detection(fit).formula, data)
+  nmix(abundance(fit).formula, detection(fit).formula, data, fit.K)
+end
+
+# Goodness-of-fit -------------------------------------------------------------
+
+function fitted(fit::Nmix)
+  y = fit.data.y
+  N,J = size(fit.data.y)
+  λ = repeat(predict(abundance(fit)), inner=J)
+  return λ .* predict(detection(fit))
+end
+
+function residuals(fit::Nmix)
+  ft = fitted(fit)
+  yl = reshape(transpose(fit.data.y), length(fit.data.y))
+  return ft .- yl
+end
+
+function chisq(fit::Nmix)
+  return sum(residuals(fit) .^ 2 ./ fitted(fit))
+end
+
+"""
+    gof(fit::Nmix, nsims::Int=30)
+
+Compute an N-mixture goodness-of-fit test using Pearson residuals.
+The distribution of the test statistic is generated using parametric 
+bootstrapping with `nsims` simulations.
+"""
+function gof(fit::Nmix, nsims::Int=30)
+  test_name = "N-mixture Goodness-of-fit"
+  t0 = chisq(fit)
+  tstar = parboot(fit, nsims, chisq)
+  return UmGOF(test_name,t0, tstar)
 end
