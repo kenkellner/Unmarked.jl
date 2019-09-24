@@ -25,7 +25,7 @@ function nmix(λ_formula::FormulaTerm, p_formula::FormulaTerm,
 
   y = data.y
   N, J = size(y)
-  K = isnothing(K) ? maximum(y) + 20 : K
+  K = isnothing(K) ? maximum(skipmissing(y)) + 20 : K
 
   function loglik(β::Array)
   
@@ -44,7 +44,7 @@ function nmix(λ_formula::FormulaTerm, p_formula::FormulaTerm,
       
       fg = zeros(eltype(β),K+1)
       for k = 0:K       
-        if maximum(y[i,:]) > k
+        if maximum(skipmissing(y[i,:])) > k
           continue
         end
         fk = pdf(Poisson(λ[i]), k)
@@ -168,7 +168,7 @@ function residuals(fit::Nmix)
 end
 
 function chisq(fit::Nmix)
-  return sum(residuals(fit) .^ 2 ./ fitted(fit))
+  return sum(skipmissing(residuals(fit) .^ 2 ./ fitted(fit)))
 end
 
 """

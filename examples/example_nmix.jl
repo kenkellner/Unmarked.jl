@@ -24,7 +24,7 @@ fit_all = nmix(allsub(λ_formula), allsub(p_formula), umd);
 #Model selection table
 fit_all
 
-#Missing values (broken right now)
+#Missing values
 yna = Array{Union{Int,Missing}}(deepcopy(umd.y))
 yna[1,:] = fill(missing, 5)
 yna[2,1] = missing
