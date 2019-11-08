@@ -5,6 +5,7 @@ using LinearAlgebra, DataFrames, Optim, NLSolversBase, ForwardDiff
 using Combinatorics: combinations
 using PrettyTables: pretty_table, ft_printf
 using ProgressMeter: @showprogress
+using Gadfly: plot, style, Guide, Geom, pt, vstack, hstack
 
 import Base: show, getindex, length
 import StatsBase: aic, aicc, bic, coef, coefnames, coeftable, deviance, dof,
@@ -22,7 +23,7 @@ export occu, nmix
 export detection, occupancy, abundance
 
 #Utility functions
-export allsub
+export allsub, whiskerplot, effectsplot
 
 include("utils.jl")
 include("links.jl")
@@ -34,5 +35,6 @@ include("gof.jl")
 include("predict.jl")
 include("occupancy.jl")
 include("nmix.jl")
+include("plots.jl")
 
 end

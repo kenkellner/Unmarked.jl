@@ -10,6 +10,12 @@ fit = occu(ψ_formula, p_formula, umd);
 
 hcat(coef(fit), β_truth)
 
+#Plots
+using Gadfly
+set_default_plot_size(20cm, 20cm)
+whiskerplot(fit)
+effectsplot(fit)
+
 #Prediction
 pr = predict(detection(fit));
 
