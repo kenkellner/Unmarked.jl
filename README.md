@@ -20,6 +20,9 @@ fit = occu(ψ_formula, p_formula, umd)
 #Compare with true coefficient values
 hcat(coef(fit), β_truth)
 
+#Plot results
+effectsplot(fit)
+
 #Predict occupancy probabilities from DataFrame
 newdata = DataFrame(elev=[0.5, -0.3], forest=[1,-1]);
 predict(occupancy(fit), newdata)

@@ -17,14 +17,14 @@ function whiskerplot(m::UnmarkedSubmodel; level::Real = 0.95)
   df[!,:upper] = df.coef + zval * df.se
 
   plot(df, x=:names, y=:coef, ymin=:lower, ymax=:upper,
-              yintercept=[0.0],
-              style(major_label_font_size=18pt, 
-                    minor_label_font_size=16pt,
-                    point_size=5pt,line_width=2pt),
-              Guide.xlabel("Parameter"), Guide.ylabel("Value"),
-              Guide.title(string(m.name)),
-              Geom.point, Geom.errorbar, 
-              Geom.hline(color="orange",style=:dash))
+       yintercept=[0.0],
+       style(major_label_font_size=18pt, 
+             minor_label_font_size=16pt,
+             point_size=5pt,line_width=2pt),
+       Guide.xlabel("Parameter"), Guide.ylabel("Value"),
+       Guide.title(string(m.name)),
+       Geom.point, Geom.errorbar, 
+       Geom.hline(color="orange",style=:dash))
 
 end
 
@@ -44,6 +44,31 @@ end
 
 #Partial effects plots for each parameter
 
+#Get array filled with "baseline" value for variable (mean or reference level)
+function get_var_baseline(x::Array{<:Number}, nrep::Int)
+  return repeat([mean(x)], nrep)
+end
+
+function get_var_baseline(x::CategoricalArray, nrep::Int)
+  out = categorical(repeat([levels(x)[1]], nrep))
+  levels!(out, levels(x))
+  return out
+end
+
+#Get sequence of values for focal parameter
+function get_var_seq(x::Array{<:Number})
+  nrow = 100
+  out = collect(range(min(x...), stop=max(x...), length=nrow))
+  return (nrow, out)
+end
+
+function get_var_seq(x::CategoricalArray)
+  nrow = length(levels(x))
+  out = categorical(levels(x))
+  levels!(out, levels(x))
+  return (nrow, out)
+end
+
 #For a single parameter
 """
     effectsplot(m::UnmarkedSubmodel, param::String; level::Real = 0.95)
@@ -53,29 +78,32 @@ The response variable is plotted on the original scale. A confidence envelope
 is also plotted for the given `level`.
 """
 function effectsplot(m::UnmarkedSubmodel, param::String; level::Real = 0.95)
-  #Build newdata for predict
+
+  resp = string(m.formula.lhs.sym)
   psym = Symbol(param)
   dat = deepcopy(m.data)
-  param_dat = dat[:, psym]
-  val_rng = collect(range(min(param_dat...), stop=max(param_dat...),
-                          length=100))
-  mns = colwise(mean, dat)  
-  nd = DataFrame()
-  for i in 1:length(mns) nd[!,names(dat)[i]] = repeat([mns[i]],100) end 
-  nd[!, psym] = val_rng
+  
+  #Build newdata for predict
+  nrow, var_seq = get_var_seq(dat[:, psym])
+  nd = aggregate(dat, x -> get_var_baseline(x, nrow))
+  names!(nd, names(dat)) 
+  nd[!, psym] = var_seq
   
   #Predict values
   pr = DataFrame(predict(m, nd, interval=true, level=level))
-  pr[!, psym] = val_rng
+  pr[!, psym] = var_seq
   
-  #Plot line with CI ribbon
-  resp = string(m.formula.lhs.sym)
-  plot(pr, x=psym, y=:prediction, ymin=:lower, ymax=:upper,
-              Geom.line, Geom.ribbon,
-              style(major_label_font_size=18pt, 
-                    minor_label_font_size=16pt),
-              Guide.xlabel(param), Guide.ylabel(resp))
+  #Choose plot type depending on variable type
+  estplot = Geom.line; errorplot = Geom.ribbon; lw = 1pt
+  if typeof(var_seq) <: CategoricalArray
+    estplot = Geom.point; errorplot = Geom.errorbar; lw = 2pt
+  end
 
+  plot(pr, x=psym, y=:prediction, ymin=:lower, ymax=:upper,
+       estplot, errorplot, Guide.xlabel(param), Guide.ylabel(resp),
+       style(major_label_font_size=18pt, minor_label_font_size=16pt,
+             point_size=5pt, line_width=lw))
+ 
 end 
 
 #For a submodel
