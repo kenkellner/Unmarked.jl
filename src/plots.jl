@@ -113,7 +113,7 @@ end
 Partial effects plot for all parameters in a submodel `m`.
 """
 function effectsplot(m::UnmarkedSubmodel; level::Real = 0.95) 
-  vars = string.(names(m.data)) 
+  vars = string.(collect(m.formula.rhs))
   vstack(map(x -> effectsplot(m, x, level=level), vars))
 end
 
