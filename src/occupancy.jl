@@ -64,10 +64,11 @@ combinations. To fit all model subsets, wrap formula with `allsubs()`.
 function occu(ψ_form::Union{Array,FormulaTerm}, 
               p_form::Union{Array,FormulaTerm}, data::UmData)
   cf = combine_formulas(ψ_form, p_form)
-  msg = string("Fitting ", length(cf), " models ")
   out = Array{UnmarkedModel}(undef, length(cf))
-  @showprogress 1 msg for i in 1:length(cf)
+  p = Progress(length(cf), desc=string("Fitting ", length(cf), " models ")) 
+  Threads.@threads for i in 1:length(cf)
     out[i] = occu(cf[i][1], cf[i][2], data)
+    next!(p)
   end
   return UnmarkedModels(out)
 end

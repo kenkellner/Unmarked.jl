@@ -85,10 +85,11 @@ function nmix(λ_form::Union{Array,FormulaTerm},
               p_form::Union{Array,FormulaTerm}, 
               data::UmData, K::Union{Int,Nothing}=nothing)
   cf = combine_formulas(λ_form, p_form)
-  msg = string("Fitting ", length(cf), " models ")
   out = Array{UnmarkedModel}(undef, length(cf))
-  @showprogress 1 msg for i in 1:length(cf) 
+  p = Progress(length(cf), desc=string("Fitting ", length(cf), " models "))
+  Threads.@threads for i in 1:length(cf) 
     out[i] = nmix(cf[i][1],cf[i][2], data, K)
+    next!(p)
   end
   return UnmarkedModels(out)
 end

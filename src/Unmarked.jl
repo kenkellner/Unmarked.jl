@@ -4,7 +4,7 @@ using StatsBase, StatsModels, StatsFuns, Distributions, Random, Printf
 using LinearAlgebra, DataFrames, Optim, NLSolversBase, ForwardDiff
 using Combinatorics: combinations
 using PrettyTables: pretty_table, ft_printf
-using ProgressMeter: @showprogress
+using ProgressMeter: Progress, next!
 using Gadfly: plot, style, Guide, Geom, pt, vstack, hstack
 
 import Base: show, getindex, length
