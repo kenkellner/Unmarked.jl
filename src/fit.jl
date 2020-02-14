@@ -171,7 +171,7 @@ end
 #Standard error
 function stderror(x::UnmarkedModel)
   v = vcov(x)
-  return sqrt.diag(v)
+  return sqrt.(diag(v))
 end
 
 function stderror(x::UnmarkedSubmodel)

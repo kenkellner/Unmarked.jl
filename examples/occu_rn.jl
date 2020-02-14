@@ -3,6 +3,8 @@
 using Random, Distributions, StatsFuns, Optim, NLSolversBase, ForwardDiff
 using LinearAlgebra
 
+using Unmarked
+
 Random.seed!(123);
 
 #Simulate data
@@ -20,45 +22,13 @@ for i = 1:N
   end
 end
 
-#Population size values to marginalize over
-K = 25
+um = UmData(y)
 
-#Estimate
 
-function loglik(β_raw::Array)
-  
-  λ = exp(β_raw[1])
-  r = logistic(β_raw[2])
-   
-  ll = zeros(eltype(β_raw),N)
-  for i = 1:N
-    fg = zeros(eltype(β_raw),K+1)
-    for k = 0:K
-      fk = pdf(Poisson(λ), k)
-      gk = 1.0
-      for j = 1:J
-        #repeatedly calculating to allow covs later
-        p = 1 - (1 - r)^k 
-        gk *= p^y[i,j] * (1-p)^(1-y[i,j])
-      end
-      fg[k+1] = fk * gk
-    end
-    ll[i] = log(sum(fg))
-  end
-
-  return -sum(ll)
-end
-      
-func = TwiceDifferentiable(vars -> loglik(vars), zeros(2); autodiff=:forward);
-
-opt = optimize(func, zeros(2));
-param = Optim.minimizer(opt);
-hes = NLSolversBase.hessian!(func, param);
-vcov = inv(hes);
-se = sqrt.(diag(vcov));
+mod = rn(@formula(λ~1), @formula(p~1), um)
 
 #Display
 truth = [log(5), logit(r)]; 
 pnames = ["β[1]", "β[2]"];
 cnames = ["param" "truth" "estimate" "se"];
-[cnames; pnames truth param se]
+[cnames; pnames truth coef(mod) stderror(mod)]

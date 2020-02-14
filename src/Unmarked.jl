@@ -11,13 +11,13 @@ import Base: show, getindex, length
 import StatsBase: aic, aicc, bic, coef, coefnames, coeftable, deviance, dof,
                   loglikelihood, modelmatrix, predict, nobs, stderror, vcov
 
-export UmData, Occu, Nmix
+export UmData, Occu, Nmix, RN
 export @formula
 export aic, aicc, bic, coef, coefnames, coeftable, deviance, dof, gof, 
        loglikelihood, modelmatrix, nobs, predict, simulate, stderror, vcov
 
 #Fitting functions       
-export occu, nmix
+export occu, nmix, rn
 
 #Submodel extractors
 export detection, occupancy, abundance
@@ -35,6 +35,7 @@ include("gof.jl")
 include("predict.jl")
 include("occupancy.jl")
 include("nmix.jl")
+include("roylenichols.jl")
 include("plots.jl")
 
 end
