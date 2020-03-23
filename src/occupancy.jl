@@ -16,7 +16,8 @@ function occu(ψ_form::FormulaTerm, p_form::FormulaTerm, data::UmData)
   
   occ = UmDesign(:Occupancy, ψ_form, LogitLink(), data.site_covs)
   det = UmDesign(:Detection, p_form, LogitLink(), data.obs_covs)
-  np = add_idx!([occ, det])
+  add_idx!([occ, det])
+  np = get_np([occ, det])
 
   y = data.y
   N, J = size(y)
@@ -96,7 +97,8 @@ function simulate(::Type{Occu}, ψ_form::FormulaTerm, p_form::FormulaTerm,
 
   occ = UmDesign(:Occ, ψ_form, LogitLink(), sc)
   det = UmDesign(:Det, p_form, LogitLink(), oc)
-  np = add_idx!([occ, det])
+  add_idx!([occ, det])
+  np = get_np([occ, det])
 
   if np != length(coef) error(string("Coef array must be length ",np)) end
 

@@ -6,7 +6,7 @@ struct Nmix <: UnmarkedModel
 end
 
 """
-    nmix(λ_formula::FormulaTerm, p_formula::FormulaTerm, data::UmData, K::Int)
+    nmix(λ_formula::FormulaTerm, p_formula::FormulaTerm, data::UmData; K::Int)
 
 Fit single-season N-mixture models. Covariates on abundance and detection 
 are specified with `λ_formula` and `p_formula`, respectively. The `UmData`
@@ -17,15 +17,17 @@ enough that the likelihood of true abundance `K` for any site is ≈ 0 (defaults
 to maximum observed count + 20). Larger `K` will increase runtime.
 """
 function nmix(λ_formula::FormulaTerm, p_formula::FormulaTerm, 
-              data::UmData, K::Union{Int,Nothing}=nothing)
+              data::UmData; K::Union{Int,Nothing}=nothing)
   
   abun = UmDesign(:Abundance, λ_formula, LogLink(), data.site_covs)
   det = UmDesign(:Detection, p_formula, LogitLink(), data.obs_covs)
-  np = add_idx!([abun, det])
+  add_idx!([abun, det])
+  np = get_np([abun, det])
 
   y = data.y
   N, J = size(y)
-  K = isnothing(K) ? maximum(skipmissing(y)) + 20 : K
+  K = check_K(K, y)
+  Kmin = get_Kmin(y)
 
   function loglik(β::Array)
   
@@ -43,10 +45,7 @@ function nmix(λ_formula::FormulaTerm, p_formula::FormulaTerm,
       end
       
       fg = zeros(eltype(β),K+1)
-      for k = 0:K       
-        if maximum(skipmissing(y[i,:])) > k
-          continue
-        end
+      for k = Kmin[i]:K 
         fk = pdf(Poisson(λ[i]), k)
         gk = 1.0
         for j = 1:J
@@ -118,7 +117,8 @@ function simulate(::Type{Nmix}, λ_form::FormulaTerm, p_form::FormulaTerm,
 
   abun = UmDesign(:Abun, λ_form, LogLink(), sc)
   det = UmDesign(:Det, p_form, LogitLink(), oc)
-  np = add_idx!([abun, det])
+  add_idx!([abun, det])
+  np = get_np([abun, det])
 
   if np != length(coef) error(string("Coef array must be length ",np)) end
 
@@ -150,7 +150,7 @@ end
 # Update ----------------------------------------------------------------------
 
 function update(fit::Nmix, data::UmData)
-  nmix(abundance(fit).formula, detection(fit).formula, data, fit.K)
+  nmix(abundance(fit).formula, detection(fit).formula, data, K=fit.K)
 end
 
 # Goodness-of-fit -------------------------------------------------------------

@@ -52,7 +52,7 @@ function add_levels(df::DataFrame)
   nlev = [n_levels(col) for col = eachcol(df)]
   maxlev = max(nlev...)
   ndf = DataFrame([rep_levels(col, maxlev) for col = eachcol(df)]) 
-  names!(ndf, names(df))
+  rename!(ndf, names(df))
   return ndf
 end
 
@@ -84,7 +84,13 @@ function add_idx!(dm::Array{UmDesign})
     x.idx = idx:(idx+np-1)
     idx += np
   end
-  return idx - 1
+  return nothing
+  #return idx - 1
+end
+
+#Get total parameters
+function get_np(dm::Array{UmDesign})
+  sum(map(x -> length(x.coefnames), dm))
 end
 
 #Transform linear predictor back to response scale

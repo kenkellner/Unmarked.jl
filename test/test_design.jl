@@ -26,6 +26,7 @@
   Unmarked.add_idx!([umd, umd2])
   @test isequal(umd.idx, 1:3)
   @test isequal(umd2.idx, 4:4)
+  @test isequal(Unmarked.get_np([umd, umd2]), 4)
 
   #Test transform
   tr = logistic.(umd.mat * [0,0.3,0.5])
