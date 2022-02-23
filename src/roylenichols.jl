@@ -6,29 +6,31 @@ struct RN <: UnmarkedModel
 end
 
 """
-    rn(λ_formula::FormulaTerm, p_formula::FormulaTerm, data::UmData, K::Int)
+    rn(λ_formula::FormulaTerm, p_formula::FormulaTerm, data::UmData; K::Int)
 
 Fit the mixture model of Royle and Nichols (2003), which estimates latent site
 abundance using presence-absence data. Probability a species is detected at a
 site is assumed to be positively related to species abundance at the site.
-Covariates on abundance and detection are specified with `λ_formula` and 
-`p_formula`, respectively. The `UmData` object should contain `site_covs` and 
-`obs_covs` `DataFrames` containing columns with names matching the formulas. 
-The likelihood is marginalized over possible latent abundance values `0:K` for 
-each site. `K` should be set high enough that the likelihood of true abundance 
-`K` for any site is ≈ 0 (defaults to maximum observed count + 20). Larger `K` 
+Covariates on abundance and detection are specified with `λ_formula` and
+`p_formula`, respectively. The `UmData` object should contain `site_covs` and
+`obs_covs` `DataFrames` containing columns with names matching the formulas.
+The likelihood is marginalized over possible latent abundance values `0:K` for
+each site. `K` should be set high enough that the likelihood of true abundance
+`K` for any site is ≈ 0 (defaults to maximum observed count + 20). Larger `K`
 will increase runtime.
 """
 function rn(λ_formula::FormulaTerm, p_formula::FormulaTerm,
-            data::UmData, K::Union{Int,Nothing}=nothing)
+            data::UmData; K::Union{Int,Nothing}=nothing)
 
   abun = UmDesign(:Abundance, λ_formula, LogLink(), data.site_covs)
   det = UmDesign(:Detection, p_formula, LogitLink(), data.obs_covs)
-  np = add_idx!([abun, det])
+  add_idx!([abun, det])
+  np = get_np([abun, det])
 
   y = data.y
   N, J = size(y)
-  K = isnothing(K) ? maximum(skipmissing(y)) + 20 : K
+  K = check_K(K, y)
+  Kmin = get_Kmin(y)
 
   function loglik(β::Array)
 
@@ -37,26 +39,18 @@ function rn(λ_formula::FormulaTerm, p_formula::FormulaTerm,
 
     ll = zeros(eltype(β), N)
 
-    idx = 0
-    for i = 1:N
+    Threads.@threads for i = 1:N
+      rsub = r[(i*J-J+1):(i*J)]
       fg = zeros(eltype(β),K+1)
-      for k = 0:K
-        if maximum(skipmissing(y[i,:])) > k
-          continue
-        end
+      for k = Kmin[i]:K
         fk = pdf(Poisson(λ[i]), k)
         gk = 1.0
         for j = 1:J
-          idx += 1
           if ismissing(y[i,j]) continue end
-          p = 1 - (1 - r[idx])^k
+          p = 1 - (1 - rsub[j])^k
           gk *= p^y[i,j] * (1-p)^(1-y[i,j])
         end
-
         fg[k+1] = fk * gk
-
-        #Return r index to start for site if necessary
-        if k != K idx -= J end
       end
       ll[i] = log(sum(fg))
     end

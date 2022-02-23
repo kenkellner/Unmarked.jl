@@ -8,7 +8,7 @@ using Unmarked
 Random.seed!(123);
 
 #Simulate data
-N = 400;
+N = 4000;
 J = 5;
 z = rand(Poisson(5),N);
 r = 0.1;
@@ -25,7 +25,7 @@ end
 um = UmData(y)
 
 
-mod = rn(@formula(λ~1), @formula(p~1), um)
+@time mod = rn(@formula(λ~1), @formula(p~1), um, K=50)
 
 #Display
 truth = [log(5), logit(r)]; 
