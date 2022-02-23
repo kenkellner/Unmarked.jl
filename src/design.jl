@@ -11,7 +11,7 @@ end
 
 #Check formulas for validity
 function check_formula(formula::FormulaTerm, data::DataFrame)
-  vars = varnames(formula).rhs
+  vars = String.(varnames(formula).rhs)
   if isnothing(vars) return nothing end
   covs = names(data)
   for x in vars
@@ -46,18 +46,18 @@ function rep_levels(x::AbstractArray, n::Int)
   end
   return repeat([0], n)
 end
-  
+
 #Create data frame containing all categorical levels to bind to original data
-function add_levels(df::DataFrame) 
+function add_levels(df::DataFrame)
   nlev = [n_levels(col) for col = eachcol(df)]
   maxlev = max(nlev...)
-  ndf = DataFrame([rep_levels(col, maxlev) for col = eachcol(df)]) 
+  ndf = DataFrame([rep_levels(col, maxlev) for col = eachcol(df)], :auto)
   rename!(ndf, names(df))
   return ndf
 end
 
 #Build and apply schema
-function get_schema(formula::FormulaTerm, data::DataFrame) 
+function get_schema(formula::FormulaTerm, data::DataFrame)
   check_formula(formula, data)
   dat = add_resp(data, formula)
   dat_aug = [dat; add_levels(dat)]

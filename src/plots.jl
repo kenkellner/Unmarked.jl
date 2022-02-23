@@ -8,9 +8,9 @@ Generate a dot-and-whisker plot for all parameters in a given submodel `m`.
 Error bars are drawn for given confidence `level`.
 """
 function whiskerplot(m::UnmarkedSubmodel; level::Real = 0.95)
-  
+
   #Build data frame of coefficients and upper/lower bounds
-  df = DataFrame(names=coefnames(m), coef=coef(m), 
+  df = DataFrame(names=coefnames(m), coef=coef(m),
                  se=stderror(m))
   zval = -quantile(Normal(), (1-level)/2)
   df[!,:lower] = df.coef - zval * df.se
@@ -18,12 +18,12 @@ function whiskerplot(m::UnmarkedSubmodel; level::Real = 0.95)
 
   plot(df, x=:names, y=:coef, ymin=:lower, ymax=:upper,
        yintercept=[0.0],
-       style(major_label_font_size=18pt, 
+       style(major_label_font_size=18pt,
              minor_label_font_size=16pt,
              point_size=5pt,line_width=2pt),
        Guide.xlabel("Parameter"), Guide.ylabel("Value"),
        Guide.title(string(m.name)),
-       Geom.point, Geom.errorbar, 
+       Geom.point, Geom.errorbar,
        Geom.hline(color="orange",style=:dash))
 
 end
@@ -82,17 +82,16 @@ function effectsplot(m::UnmarkedSubmodel, param::String; level::Real = 0.95)
   resp = string(m.formula.lhs.sym)
   psym = Symbol(param)
   dat = deepcopy(m.data)
-  
+
   #Build newdata for predict
   nrow, var_seq = get_var_seq(dat[:, psym])
-  nd = aggregate(dat, x -> get_var_baseline(x, nrow))
-  names!(nd, names(dat)) 
+  nd = mapcols(col -> get_var_baseline(col, nrow), dat)
   nd[!, psym] = var_seq
-  
+
   #Predict values
   pr = DataFrame(predict(m, nd, interval=true, level=level))
   pr[!, psym] = var_seq
-  
+
   #Choose plot type depending on variable type
   estplot = Geom.line; errorplot = Geom.ribbon; lw = 1pt
   if typeof(var_seq) <: CategoricalArray
@@ -103,8 +102,8 @@ function effectsplot(m::UnmarkedSubmodel, param::String; level::Real = 0.95)
        estplot, errorplot, Guide.xlabel(param), Guide.ylabel(resp),
        style(major_label_font_size=18pt, minor_label_font_size=16pt,
              point_size=5pt, line_width=lw))
- 
-end 
+
+end
 
 #For a submodel
 """
@@ -112,7 +111,7 @@ end
 
 Partial effects plot for all parameters in a submodel `m`.
 """
-function effectsplot(m::UnmarkedSubmodel; level::Real = 0.95) 
+function effectsplot(m::UnmarkedSubmodel; level::Real = 0.95)
   vars = string.(collect(m.formula.rhs))
   vstack(map(x -> effectsplot(m, x, level=level), vars))
 end

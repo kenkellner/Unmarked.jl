@@ -2,6 +2,7 @@ module Unmarked
 
 using StatsBase, StatsModels, StatsFuns, Distributions, Random, Printf
 using LinearAlgebra, DataFrames, Optim, NLSolversBase, ForwardDiff
+using CategoricalArrays
 using Combinatorics: combinations
 using PrettyTables: pretty_table, ft_printf
 using ProgressMeter: Progress, next!
@@ -13,10 +14,10 @@ import StatsBase: aic, aicc, bic, coef, coefnames, coeftable, deviance, dof,
 
 export UmData, Occu, Nmix, RN
 export @formula
-export aic, aicc, bic, coef, coefnames, coeftable, deviance, dof, gof, 
+export aic, aicc, bic, coef, coefnames, coeftable, deviance, dof, gof,
        loglikelihood, modelmatrix, nobs, predict, simulate, stderror, vcov
 
-#Fitting functions       
+#Fitting functions
 export occu, nmix, rn
 
 #Submodel extractors

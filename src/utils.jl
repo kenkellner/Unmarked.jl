@@ -7,11 +7,11 @@ function ndetects(y::Array)
 end
 
 #Simulate random covariate frame based on provided formula
-function gen_covs(f::FormulaTerm, n::Int)  
+function gen_covs(f::FormulaTerm, n::Int)
   covs = varnames(f).rhs
-  if isnothing(covs) return DataFrame(_dummy=ones(n)) end 
+  if isnothing(covs) return DataFrame(_dummy=ones(n)) end
   nc = length(covs)
-  out = DataFrame(reshape(rand(Normal(0,1), n*nc), n, nc))
+  out = DataFrame(reshape(rand(Normal(0,1), n*nc), n, nc), :auto)
   DataFrames.rename!(out, covs)
   out
 end
@@ -41,7 +41,7 @@ function get_Kmin(y::Array{Union{Missing,Int64},2})
   N = size(y, 1)
   kmin = zeros(Int64, N)
   for n in 1:N
-    if(all(ismissing.(y[n, :]))) continue end 
+    if(all(ismissing.(y[n, :]))) continue end
     kmin[n] = maximum(skipmissing(y[n, :]))
   end
   kmin
