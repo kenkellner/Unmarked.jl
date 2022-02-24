@@ -1,7 +1,9 @@
 name = "Unmarked"
 uuid = "d24412d6-d11b-11e9-3460-93a4449a3529"
-authors = ["Ken Kellner <ken@kenkellner.com>"]
-version = "0.1.0"
+license = "MIT"
+desc = "Ecological models of occupancy and abundance"
+authors = ["Ken Kellner <contact@kenkellner.com>"]
+version = "0.1.1"
 
 [deps]
 CategoricalArrays = "324d7699-5711-5eae-9e2f-1d82baa6b597"

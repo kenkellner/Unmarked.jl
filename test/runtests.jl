@@ -1,5 +1,5 @@
 using Test, Unmarked
-using Random, StatsModels, StatsFuns, StatsBase, DataFrames
+using Random, StatsModels, StatsFuns, StatsBase, DataFrames, CategoricalArrays
 
 include("test_data.jl")
 include("test_design.jl")

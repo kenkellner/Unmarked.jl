@@ -9,14 +9,14 @@ end
 "Optimize a likelihood function loglik with np parameters"
 function optimize_loglik(loglik, np)
 
-  func = TwiceDifferentiable(vars -> loglik(vars), zeros(np); 
+  func = TwiceDifferentiable(vars -> loglik(vars), zeros(np);
                              autodiff=:forward)
 
   opt = optimize(func, zeros(np), LBFGS())
   param = Optim.minimizer(opt)
   hes = NLSolversBase.hessian!(func, param)
   vcov = inv(hes)
-  loglik = -Optim.minimum(opt) 
+  loglik = -Optim.minimum(opt)
   UnmarkedOpt(param, vcov, loglik)
 end
 
@@ -77,7 +77,7 @@ function short_name(fit::Unmarked.UnmarkedSubmodel)
 end
 
 function short_name(fit::Unmarked.UnmarkedModel)
-  join(map(x -> short_name(x), fit.submodels)) 
+  join(map(x -> short_name(x), fit.submodels))
 end
 
 #Re-create design matrices from fitted models-------------------------
@@ -100,7 +100,7 @@ function Base.show(io::IO, um::UnmarkedSubmodel)
 end
 
 function Base.show(io::IO, fit::UnmarkedModel)
-  
+
   println()
   for i = 1:length(fit.submodels)
     println(string(fit.submodels[i].name, ": ", fit.submodels[i].formula))
@@ -120,14 +120,14 @@ function Base.show(io::IO, um::UnmarkedModels)
   tab = [r map(x->short_name(x),um.models)[r] a da wt]
   pretty_table(tab, ["No.", "Model", "AIC", "Δ AIC", "Weight"],
                alignment=[:l,:l,:r,:r,:r],
-               formatter=ft_printf("%.2f",[3,4,5]))
+               formatters=ft_printf("%.2f",[3,4,5]))
 end
 
 #Misc. methods reguired for RegressionModel interface-----------------
 
 #Coeftable
 function coeftable(um::UnmarkedSubmodel; level::Real=0.95)
-  
+
   c = coef(um)
   se = stderror(um)
   z = abs.(c ./ se)
@@ -135,7 +135,7 @@ function coeftable(um::UnmarkedSubmodel; level::Real=0.95)
   ci = se*quantile(Normal(), (1-level)/2)
   levstr = level*100
   levstr = isinteger(levstr) ? string(Integer(levstr)) : string(levstr)
-  CoefTable(map(x->round.(x,digits=4), [c, se, z, pval, c+ci, c-ci]), 
+  CoefTable(map(x->round.(x,digits=4), [c, se, z, pval, c+ci, c-ci]),
             ["Estimate", "SE", "z", "Pr(>|z|)",
              "Low $levstr%","Up $levstr%"],
             coefnames(um), 4, 3)
@@ -158,7 +158,7 @@ end
 function coefnames(x::UnmarkedSubmodel)
   return x.coefnames
 end
- 
+
 #Variance-covariance matrix
 function vcov(x::UnmarkedModel)
   return x.opt.vcov

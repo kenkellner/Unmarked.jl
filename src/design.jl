@@ -11,8 +11,9 @@ end
 
 #Check formulas for validity
 function check_formula(formula::FormulaTerm, data::DataFrame)
-  vars = String.(varnames(formula).rhs)
+  vars = varnames(formula).rhs
   if isnothing(vars) return nothing end
+  vars = String.(vars)
   covs = names(data)
   for x in vars
     if x ∉ covs error(string(x," not found in data")) end
