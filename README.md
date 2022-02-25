@@ -1,6 +1,6 @@
 # Unmarked.jl
 
-[![Build Status](https://travis-ci.org/kenkellner/Unmarked.jl.svg?branch=master)](https://travis-ci.org/kenkellner/Unmarked.jl)
+[![Build Status](https://github.com/kenkellner/Unmarked.jl/workflows/CI/badge.svg)](https://github.com/kenkellner/Unmarked.jl/actions)
 [![codecov](https://codecov.io/gh/kenkellner/Unmarked.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/kenkellner/Unmarked.jl)
 
 Unofficial Julia port of the R package [unmarked](https://cran.r-project.org/web/packages/unmarked/index.html), for analyzing ecological data while accounting for imperfect detection.
